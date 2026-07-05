@@ -1,4 +1,4 @@
-"""Boucle d'entraînement, évaluation, et fit avec early stopping sur F1 macro."""
+"""Training loop, evaluation, and fit with early stopping on macro F1."""
 from __future__ import annotations
 
 import copy
@@ -14,7 +14,7 @@ from .metrics import macro_f1
 
 
 def class_weights(labels, num_classes: int = NUM_CLASSES) -> torch.Tensor:
-    """Poids = inverse de la fréquence, normalisés. Pour CrossEntropyLoss(weight=)."""
+    """Weights = inverse frequency, normalized. For CrossEntropyLoss(weight=)."""
     labels = np.asarray(labels)
     counts = np.bincount(labels, minlength=num_classes).astype(np.float64)
     counts[counts == 0] = 1.0
@@ -24,7 +24,7 @@ def class_weights(labels, num_classes: int = NUM_CLASSES) -> torch.Tensor:
 
 @torch.no_grad()
 def evaluate(model, loader: DataLoader, criterion, device=None):
-    """Retourne (loss moyenne, y_true, y_pred). Met le modèle en eval()."""
+    """Returns (mean loss, y_true, y_pred). Sets the model to eval()."""
     device = device or get_device()
     model.eval()
     total_loss, n = 0.0, 0
@@ -72,9 +72,9 @@ def fit(
     device=None,
     verbose: bool = True,
 ):
-    """Entraîne et garde les meilleurs poids selon le F1 macro de validation.
+    """Trains and keeps the best weights according to the validation macro F1.
 
-    Retourne (best_model, history) où history est un dict de listes par epoch.
+    Returns (best_model, history) where history is a dict of lists per epoch.
     """
     device = device or get_device()
     model.to(device)

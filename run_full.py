@@ -1,5 +1,5 @@
-"""Run complet headless (le même pipeline que le notebook) pour produire les vrais
-chiffres et figures. Streame la progression par epoch. Écrit figures/ + results.json.
+"""Full headless run (the same pipeline as the notebook) to produce the real
+numbers and figures. Streams progress per epoch. Writes figures/ + results.json.
 
     uv run python run_full.py
 """
@@ -21,7 +21,7 @@ NW = 2 if torch.cuda.is_available() else 0
 RES_S, RES_L, BATCH = 64, 128, 128
 print(f"[full] device={dev} num_workers={NW}", flush=True)
 
-# --- Données 64 px ---
+# --- Data 64 px ---
 tr, va, teds, (mean, std) = data.get_datasets(res=RES_S)
 tl, vl, te = data.make_loaders(tr, va, teds, BATCH, NW)
 cw = engine.class_weights(tr.y).to(dev)
@@ -39,7 +39,7 @@ for name, mk in [("LogReg", lambda: models.LogisticRegression(image_size=RES_S))
     results[name] = metrics.summary_metrics(yt, yp)
     print(f"[full] {name} test F1={results[name]['f1_macro']:.3f}", flush=True)
 
-print("== CNN maison ==", flush=True)
+print("== custom CNN ==", flush=True)
 cnn = models.GalaxyCNN()
 cnn, hist = engine.fit(cnn, tl, vl, epochs=30, lr=1e-3, criterion=crit, device=dev)
 _, yt, yp = engine.evaluate(cnn, te, crit, dev)
@@ -100,17 +100,17 @@ gradcam.plot_gradcam_grid(res, res.layer4[-1], te2ds.x[idx2], IMAGENET_MEAN, IMA
                           y_true=te2ds.y[idx2], device=dev, name="gradcam_resnet.png")
 
 print("== ablations ==", flush=True)
-abl = {"CNN complet": results["CNN"]["f1_macro"]}
+abl = {"full CNN": results["CNN"]["f1_macro"]}
 trna, vana, tenads, _ = data.get_datasets(res=RES_S, augment=False)
 tlna, vlna, tena = data.make_loaders(trna, vana, tenads, BATCH, NW)
 m, _ = engine.fit(models.GalaxyCNN(), tlna, vlna, epochs=30, lr=1e-3, criterion=crit,
                   device=dev, verbose=False)
 _, yt, yp = engine.evaluate(m, tena, crit, dev)
-abl["sans augmentation"] = metrics.summary_metrics(yt, yp)["f1_macro"]
+abl["no augmentation"] = metrics.summary_metrics(yt, yp)["f1_macro"]
 m, _ = engine.fit(models.GalaxyCNN(use_bn=False), tl, vl, epochs=30, lr=1e-3, criterion=crit,
                   device=dev, verbose=False)
 _, yt, yp = engine.evaluate(m, te, crit, dev)
-abl["sans BatchNorm"] = metrics.summary_metrics(yt, yp)["f1_macro"]
+abl["no BatchNorm"] = metrics.summary_metrics(yt, yp)["f1_macro"]
 print(f"[full] ablations {abl}", flush=True)
 
 out = {

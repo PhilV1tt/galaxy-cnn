@@ -1,47 +1,47 @@
-# Classification morphologique de galaxies par CNN
+# Galaxy morphological classification with CNN
 
-Galaxy10 DECaLS (17 736 images, 10 classes). Trois niveaux de modèles pour isoler
-l'apport de la convolution : baselines sans convolution (régression logistique, MLP),
-CNN maison (~1,44 M paramètres), et ResNet18 pré-entraîné. Interprétation par Grad-CAM,
-ablations sans augmentation / sans BatchNorm.
+Galaxy10 DECaLS (17 736 images, 10 classes). Three model levels to isolate the gain from
+convolution: baselines without convolution (logistic regression, MLP), a custom CNN
+(~1,44 M parameters), and a pretrained ResNet18. Interpretation with Grad-CAM, ablations
+without augmentation / without BatchNorm.
 
-Projet : Patrick Yvan Eyike, Philémon Vittet, Sidi Hamadi, Abdelrahman Dahy, Inès Lylia Zerdani.
+Project: Patrick Yvan Eyike, Philémon Vittet, Sidi Hamadi, Abdelrahman Dahy, Inès Lylia Zerdani.
 
-## Contenu
+## Contents
 
 ```
 galaxy/            package (data, models, engine, metrics, viz, gradcam)
-galaxy_cnn.ipynb   notebook auto-portant, sections 0-8 (le rendu à exécuter)
-run_full.py        run complet headless -> figures/ + results.json
-smoke_test.py      vérif rapide du pipeline (petit split, quelques epochs)
-inject_results.py  injecte results.json dans les .tex
-report/rapport.tex rapport LaTeX
+galaxy_cnn.ipynb   self-contained notebook, sections 0-8 (the deliverable to run)
+run_full.py        full headless run -> figures/ + results.json
+smoke_test.py      quick pipeline check (small split, a few epochs)
+inject_results.py  injects results.json into the .tex files
+report/rapport.tex LaTeX report
 slides/            presentation.tex (Beamer) + script.md
-figures/           figures générées
+figures/           generated figures
 docs/…/*-design.md design doc
 ```
 
-## Lancer en local (Mac, GPU MPS)
+## Run locally (Mac, MPS GPU)
 
 ```bash
 uv sync
-uv run python smoke_test.py          # vérif ~1 min (petit split test)
-uv run python run_full.py            # run complet -> figures/ + results.json
+uv run python smoke_test.py          # check ~1 min (small test split)
+uv run python run_full.py            # full run -> figures/ + results.json
 ```
 
-## Lancer sur Colab (GPU T4)
+## Run on Colab (T4 GPU)
 
-1. Activer le GPU : Exécution → Modifier le type d'exécution → T4.
-2. Ouvrir `galaxy_cnn.ipynb`, décommenter `!pip install datasets` dans la première cellule.
-3. Exécuter tout (`FULL_RUN=True`). Récupérer ensuite `figures/` et `results.json`.
+1. Enable the GPU: Runtime → Change runtime type → T4.
+2. Open `galaxy_cnn.ipynb`, uncomment `!pip install datasets` in the first cell.
+3. Run all (`FULL_RUN=True`). Then collect `figures/` and `results.json`.
 
-Pour itérer vite en local sans télécharger les 2,3 Go, exporter `GALAXY_FULL=0` avant de
-lancer le notebook : il bascule sur le petit split test.
+To iterate fast locally without downloading the 2,3 GB, export `GALAXY_FULL=0` before
+running the notebook: it switches to the small test split.
 
-## Rapport et slides
+## Report and slides
 
 ```bash
-uv run python inject_results.py                    # chiffres -> rapport.tex + presentation.tex
+uv run python inject_results.py                    # numbers -> rapport.tex + presentation.tex
 latexmk -pdf -cd report/rapport.tex
 latexmk -pdf -cd slides/presentation.tex
 ```

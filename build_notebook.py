@@ -1,9 +1,9 @@
-"""Construit galaxy_cnn.ipynb, auto-portant, à partir du package galaxy/ validé.
+"""Build galaxy_cnn.ipynb, self-contained, from the validated galaxy/ package.
 
-On inline le code du package (sans les imports relatifs) en cellules "bibliothèque",
-puis on ajoute la narration et l'orchestration des sections 1 à 8. Ainsi le notebook
-tourne sur Colab sans dépendre des fichiers du repo, tout en restant le même code que
-celui testé localement.
+We inline the package code (without the relative imports) as "library" cells,
+then add the narration and orchestration of sections 1 to 8. This way the notebook
+runs on Colab without depending on the repo files, while staying the same code as
+the one tested locally.
 
     uv run python build_notebook.py
 """
@@ -16,7 +16,7 @@ GAL = ROOT / "galaxy"
 
 
 def strip_module(fname: str) -> str:
-    """Lit un module et retire __future__ et les imports relatifs (inline)."""
+    """Read a module and strip __future__ and the relative imports (inline)."""
     out = []
     for ln in (GAL / fname).read_text().splitlines():
         s = ln.strip()
@@ -34,37 +34,37 @@ md = lambda t: cells.append(nbf.v4.new_markdown_cell(t))
 code = lambda t: cells.append(nbf.v4.new_code_cell(t))
 
 # ---------------------------------------------------------------- Titre
-md(r"""# Classification morphologique de galaxies par CNN
-### Galaxy10 DECaLS — 17 736 images, 10 classes
+md(r"""# Morphological classification of galaxies with a CNN
+### Galaxy10 DECaLS: 17 736 images, 10 classes
 
 Patrick Yvan Eyike · Philémon Vittet · Sidi Hamadi · Abdelrahman Dahy · Inès Lylia Zerdani
 
-**Question.** Un réseau de neurones convolutif peut-il reproduire le travail de tri
-morphologique fait par les volontaires de Galaxy Zoo ?
+**Question.** Can a convolutional neural network reproduce the morphological
+sorting work done by the Galaxy Zoo volunteers?
 
-On raconte une histoire en trois niveaux pour isoler l'apport de la **convolution** :
+We tell a story on three levels to isolate the contribution of **convolution**:
 
-1. **baselines sans convolution** (régression logistique, MLP sur pixels aplatis) ;
-2. **CNN maison** (partage de poids, équivariance par translation) ;
-3. **transfer learning** (ResNet18 pré-entraîné sur ImageNet).
+1. **baselines without convolution** (logistic regression, MLP on flattened pixels);
+2. **custom CNN** (weight sharing, translation equivariance);
+3. **transfer learning** (ResNet18 pretrained on ImageNet).
 
-Puis on **interprète** avec Grad-CAM (où le réseau regarde) et on quantifie l'apport de
-chaque ingrédient par **ablations**. Le lien physique est direct : l'équivariance par
-translation du CNN est une symétrie imposée à l'architecture, dans l'esprit des symétries
-en physique.
+Then we **interpret** with Grad-CAM (where the network looks) and we quantify the
+contribution of each ingredient through **ablations**. The physical link is direct: the
+translation equivariance of the CNN is a symmetry imposed on the architecture, in the
+spirit of symmetries in physics.
 
-Sections : 0 Setup · 1 EDA · 2 Preprocessing & augmentation · 3 Baselines · 4 CNN maison &
-tuning · 5 Transfer learning · 6 Évaluation test · 7 Grad-CAM · 8 Ablations.""")
+Sections: 0 Setup · 1 EDA · 2 Preprocessing & augmentation · 3 Baselines · 4 custom CNN &
+tuning · 5 Transfer learning · 6 Test evaluation · 7 Grad-CAM · 8 Ablations.""")
 
 # ---------------------------------------------------------------- 0. Setup
-md(r"""## 0. Setup — environnement et bibliothèque
+md(r"""## 0. Setup: environment and library
 
-Sur Colab, activer le GPU (Exécution → Modifier le type d'exécution → T4) et lancer la
-cellule d'installation. Les cellules suivantes définissent toute la bibliothèque du projet
-(données, modèles, entraînement, métriques, figures, Grad-CAM) : le notebook est
-auto-portant.""")
+On Colab, enable the GPU (Runtime → Change runtime type → T4) and run the
+install cell. The following cells define the whole project library
+(data, models, training, metrics, figures, Grad-CAM): the notebook is
+self-contained.""")
 
-code(r"""# Colab : décommenter la ligne suivante (torch/torchvision/sklearn sont déjà présents)
+code(r"""# Colab: uncomment the next line (torch/torchvision/sklearn are already present)
 # !pip -q install "datasets>=3.0.0"
 import os, json, time, copy, random
 from pathlib import Path
@@ -82,16 +82,16 @@ from IPython.display import Image as ShowImage, display
 print("torch", torch.__version__, "| cuda", torch.cuda.is_available(),
       "| mps", torch.backends.mps.is_available())""")
 
-md("### Constantes, device et chemins")
+md("### Constants, device and paths")
 code(strip_module("config.py"))
 
-md(r"""### Réglages d'exécution
+md(r"""### Run settings
 
-`FULL_RUN=True` : run complet (Colab, tout le dataset, ~30 epochs). Pour itérer vite en
-local, exporter `GALAXY_FULL=0` : le notebook bascule sur le petit split test (toutes les
-classes) et peu d'epochs, ce qui valide toute la chaîne en quelques minutes.""")
+`FULL_RUN=True`: full run (Colab, the whole dataset, ~30 epochs). To iterate fast
+locally, export `GALAXY_FULL=0`: the notebook switches to the small test split (all
+classes) and few epochs, which validates the whole chain in a few minutes.""")
 code(r"""FULL_RUN = os.environ.get("GALAXY_FULL", "1") == "1"
-RES_SMALL, RES_LARGE = 64, 128        # 64 px pour itérer, 128 px pour les runs finaux
+RES_SMALL, RES_LARGE = 64, 128        # 64 px to iterate, 128 px for the final runs
 BATCH = 128
 NUM_WORKERS = 2 if torch.cuda.is_available() else 0
 if FULL_RUN:
@@ -104,13 +104,13 @@ else:
     EPOCHS_RES_FE, EPOCHS_RES = 2, 2
 print("FULL_RUN =", FULL_RUN, "| SMOKE_N =", SMOKE_N)""")
 
-md("### Métriques")
+md("### Metrics")
 code(strip_module("metrics.py"))
-md("### Modèles — baselines, CNN maison, ResNet18")
+md("### Models: baselines, custom CNN, ResNet18")
 code(strip_module("models.py"))
-md("### Données — chargement, split, normalisation, augmentation")
+md("### Data: loading, split, normalization, augmentation")
 code(strip_module("data.py"))
-md("### Entraînement — boucle, évaluation, early stopping sur F1 macro")
+md("### Training: loop, evaluation, early stopping on macro F1")
 code(strip_module("engine.py"))
 md("### Figures")
 code(strip_module("viz.py"))
@@ -118,10 +118,10 @@ md("### Grad-CAM")
 code(strip_module("gradcam.py"))
 
 # ---------------------------------------------------------------- 1. EDA
-md(r"""## 1. Analyse exploratoire (EDA)
+md(r"""## 1. Exploratory analysis (EDA)
 
-On charge les données et on regarde ce qu'on manipule : un exemple par classe, la
-distribution (fortement déséquilibrée), et les statistiques de couleur par classe.""")
+We load the data and look at what we handle: one example per class, the
+distribution (strongly imbalanced), and the color statistics per class.""")
 code(r"""set_seed()
 device = get_device(); print("device:", device)
 
@@ -129,11 +129,11 @@ train_ds, val_ds, test_ds, (mean, std) = get_datasets(res=RES_SMALL, smoke_n=SMO
 print(f"train={len(train_ds)}  val={len(val_ds)}  test={len(test_ds)}")
 display(ShowImage(plot_samples_grid(test_ds.x, test_ds.y)))""")
 
-code(r"""# Distribution des classes sur l'ensemble d'entraînement (train + val)
+code(r"""# Class distribution over the training set (train + val)
 y_full = torch.cat([train_ds.y, val_ds.y])
 display(ShowImage(plot_class_distribution(y_full)))""")
 
-code(r"""# Statistiques de couleur moyenne par classe (sur le train, en [0,1])
+code(r"""# Mean color statistics per class (on the train set, in [0,1])
 xtr = train_ds.x.float() / 255.0
 rows = []
 for c in range(NUM_CLASSES):
@@ -142,29 +142,29 @@ for c in range(NUM_CLASSES):
 pd.DataFrame(rows, columns=["classe", "n_train", "R", "G", "B"])""")
 
 # ---------------------------------------------------------------- 2. Preprocessing
-md(r"""## 2. Preprocessing et augmentation
+md(r"""## 2. Preprocessing and augmentation
 
-**Split.** Le dataset fournit déjà un `train` (16 000) et un `test` (1 800). On garde le
-**test officiel comme test final, jamais touché**. La validation est un tirage **stratifié
-15 %** dans le train (seed figé). Toutes les décisions de tuning se prennent sur la validation.
+**Split.** The dataset already provides a `train` (16 000) and a `test` (1 800). We keep the
+**official test as the final test, never touched**. Validation is a **stratified
+15 %** draw from the train (fixed seed). All tuning decisions are made on the validation set.
 
-**Normalisation.** mean/std par canal calculés **sur le train uniquement**, pour éviter toute
-fuite d'information du test.
+**Normalization.** per-channel mean/std computed **on the train only**, to avoid any
+information leak from the test.
 
-**Augmentation (train uniquement).** Rotations 0-360°, flips horizontaux et verticaux, léger
-jitter de luminosité/contraste. Justification physique : une galaxie n'a pas d'orientation
-privilégiée dans le ciel, ces transformations sont des invariances réelles du problème. On les
-applique **après le split**, jamais sur val/test.""")
+**Augmentation (train only).** Rotations 0-360°, horizontal and vertical flips, slight
+brightness/contrast jitter. Physical justification: a galaxy has no privileged
+orientation in the sky, these transformations are real invariances of the problem. We
+apply them **after the split**, never on val/test.""")
 code(r"""print("mean train:", [round(v, 4) for v in mean.tolist()])
 print("std  train:", [round(v, 4) for v in std.tolist()])
 display(ShowImage(plot_augmentation(train_ds.x[0], mean, std)))""")
 
 # ---------------------------------------------------------------- 3. Baselines
-md(r"""## 3. Baselines sans convolution
+md(r"""## 3. Baselines without convolution
 
-Elles doivent être médiocres : c'est le but. Elles aplatissent l'image et traitent chaque
-pixel comme une variable indépendante, sans aucune notion de structure spatiale. On pondère la
-loss par l'inverse des fréquences (déséquilibre) et on suit le **F1 macro**.""")
+They should be mediocre: that is the point. They flatten the image and treat each
+pixel as an independent variable, with no notion of spatial structure. We weight the
+loss by the inverse of the frequencies (imbalance) and track the **macro F1**.""")
 code(r"""tl, vl, te = make_loaders(train_ds, val_ds, test_ds, batch_size=BATCH, num_workers=NUM_WORKERS)
 cw = class_weights(train_ds.y).to(device)
 crit = nn.CrossEntropyLoss(weight=cw)
@@ -185,17 +185,17 @@ results["MLP"] = summary_metrics(yt, yp)
 pd.DataFrame(results).T[["accuracy", "f1_macro", "f1_weighted"]].round(3)""")
 
 # ---------------------------------------------------------------- 4. CNN
-md(r"""## 4. CNN maison et tuning
+md(r"""## 4. Custom CNN and tuning
 
-4 blocs `[Conv 3x3 (sans biais) → BatchNorm → ReLU → MaxPool]` avec channels
-`(32, 64, 128, 256)`, `AdaptiveAvgPool(4x4)`, puis une tête dense. La conv 3x3 avec padding 1
-conserve la taille ; le pooling la divise par 2. Le partage de poids d'un filtre sur toute
-l'image donne l'**équivariance par translation** : déplacer un motif dans l'image déplace
-d'autant sa réponse.""")
+4 blocks `[Conv 3x3 (no bias) → BatchNorm → ReLU → MaxPool]` with channels
+`(32, 64, 128, 256)`, `AdaptiveAvgPool(4x4)`, then a dense head. The 3x3 conv with padding 1
+keeps the size; pooling divides it by 2. Sharing a filter's weights over the whole
+image gives **translation equivariance**: moving a pattern in the image moves
+its response by the same amount.""")
 code(r"""cnn = GalaxyCNN()
-print("paramètres entraînables:", f"{count_parameters(cnn):,}")
+print("trainable parameters:", f"{count_parameters(cnn):,}")
 
-# Dimensions de sortie bloc par bloc (entrée 3 x RES_SMALL x RES_SMALL)
+# Output dimensions block by block (input 3 x RES_SMALL x RES_SMALL)
 x = torch.zeros(1, 3, RES_SMALL, RES_SMALL); shapes = []
 for i, blk in enumerate(cnn.features):
     x = blk(x); shapes.append([f"bloc {i+1}", tuple(x.shape[1:])])
@@ -207,7 +207,7 @@ _, yt, yp = evaluate(cnn, te, crit, device)
 results["CNN"] = summary_metrics(yt, yp)
 print("CNN test:", {k: round(v, 3) for k, v in results["CNN"].items()})""")
 
-md("**Tuning du learning rate** (le plus important). On garde le meilleur F1 macro de validation.")
+md("**Learning rate tuning** (the most important). We keep the best validation macro F1.")
 code(r"""runs = []
 for lr in [3e-4, 1e-3, 3e-3]:
     m = GalaxyCNN()
@@ -217,12 +217,12 @@ for lr in [3e-4, 1e-3, 3e-3]:
 pd.DataFrame(runs)""")
 
 # ---------------------------------------------------------------- 5. Transfer
-md(r"""## 5. Transfer learning — ResNet18
+md(r"""## 5. Transfer learning: ResNet18
 
-On réutilise un ResNet18 pré-entraîné sur ImageNet, on remplace la dernière couche par 10
-sorties, et on procède en deux temps : d'abord **feature extraction** (backbone gelé, on
-n'entraîne que la tête), puis **fine-tuning** (tout est dégelé, LR plus faible). On travaille
-en 128 px et on normalise avec les statistiques ImageNet, attendues par le backbone.""")
+We reuse a ResNet18 pretrained on ImageNet, replace the last layer with 10
+outputs, and proceed in two stages: first **feature extraction** (frozen backbone, we
+train only the head), then **fine-tuning** (everything unfrozen, lower LR). We work
+at 128 px and normalize with the ImageNet statistics expected by the backbone.""")
 code(r"""tr2, val2, te2ds, _ = get_datasets(res=RES_LARGE, smoke_n=SMOKE_N,
                                    mean=IMAGENET_MEAN, std=IMAGENET_STD)
 tl2, vl2, te2 = make_loaders(tr2, val2, te2ds, batch_size=BATCH, num_workers=NUM_WORKERS)
@@ -231,31 +231,31 @@ crit2 = nn.CrossEntropyLoss(weight=cw2)
 
 resnet = build_resnet18(pretrained=True, mode="features")
 resnet, _ = fit(resnet, tl2, vl2, epochs=EPOCHS_RES_FE, lr=1e-3, criterion=crit2,
-                device=device, verbose=False)                    # tête seule
+                device=device, verbose=False)                    # head only
 for p in resnet.parameters():
     p.requires_grad = True
 resnet, hist_res = fit(resnet, tl2, vl2, epochs=EPOCHS_RES, lr=1e-4, criterion=crit2,
-                       device=device)                            # fine-tuning complet
+                       device=device)                            # full fine-tuning
 _, yt2, yp2 = evaluate(resnet, te2, crit2, device)
 results["ResNet18"] = summary_metrics(yt2, yp2)
 print("ResNet18 test:", {k: round(v, 3) for k, v in results["ResNet18"].items()})""")
 
 # ---------------------------------------------------------------- 6. Eval
-md(r"""## 6. Évaluation sur le test
+md(r"""## 6. Test evaluation
 
-L'échelle baseline → CNN → ResNet répond à la question « que gagne-t-on avec la
-convolution ? ». On regarde ensuite la matrice de confusion et le F1 par classe du meilleur
-modèle, et on analyse les confusions entre classes voisines.""")
+The baseline → CNN → ResNet scale answers the question "what do we gain with
+convolution?". We then look at the confusion matrix and the per-class F1 of the best
+model, and analyze the confusions between neighboring classes.""")
 code(r"""display(ShowImage(plot_scale_comparison(results, metric="f1_macro")))
 display(pd.DataFrame(results).T[["accuracy", "f1_macro", "f1_weighted"]].round(3))""")
 
-code(r"""# Meilleur modèle = ResNet18 : confusion + F1 par classe
+code(r"""# Best model = ResNet18: confusion + per-class F1
 display(ShowImage(plot_confusion(confusion(yt2, yp2, normalize="true"))))
 pc = per_class_df(yt2, yp2)
 display(ShowImage(plot_perclass_f1(pc)))
 pc.round(3)""")
 
-code(r"""# Sauvegarde des résultats pour le rapport (injection des chiffres)
+code(r"""# Save results for the report (number injection)
 results_out = {
     "models": {k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in results.items()},
     "cnn_params": count_parameters(GalaxyCNN()),
@@ -269,16 +269,16 @@ results_out = {
 }
 out_path = project_root() / "results.json"
 json.dump(results_out, open(out_path, "w"), indent=2, ensure_ascii=False)
-print("écrit:", out_path)
+print("written:", out_path)
 print(json.dumps(results_out["models"], indent=2, ensure_ascii=False))""")
 
 # ---------------------------------------------------------------- 7. Grad-CAM
-md(r"""## 7. Grad-CAM — où le réseau regarde
+md(r"""## 7. Grad-CAM: where the network looks
 
-Grad-CAM pondère les feature maps de la dernière convolution par le gradient moyen du score
-de la classe, applique une ReLU, et rééchelonne à la taille de l'image. On l'applique sur des
-prédictions correctes **et** des erreurs, pour le CNN maison et pour le ResNet : le réseau
-regarde-t-il les bras spiraux, la barre, le compagnon de fusion, ou des artefacts ?""")
+Grad-CAM weights the feature maps of the last convolution by the mean gradient of the class
+score, applies a ReLU, and rescales to the image size. We apply it on correct
+predictions **and** errors, for the custom CNN and for the ResNet: does the network
+look at the spiral arms, the bar, the merger companion, or artifacts?""")
 code(r"""def pick_examples(model, ds, device, n_ok=3, n_bad=3):
     model.eval()
     preds = []
@@ -302,43 +302,43 @@ display(ShowImage(plot_gradcam_grid(resnet, resnet.layer4[-1], te2ds.x[idx2],
 # ---------------------------------------------------------------- 8. Ablations
 md(r"""## 8. Ablations
 
-On retire un ingrédient à la fois pour quantifier son apport : **sans augmentation** et
-**sans BatchNorm**. On compare le F1 macro (test) au CNN complet.""")
-code(r"""abl = {"CNN complet": results["CNN"]["f1_macro"]}
+We remove one ingredient at a time to quantify its contribution: **no augmentation** and
+**no BatchNorm**. We compare the macro F1 (test) with the full CNN.""")
+code(r"""abl = {"full CNN": results["CNN"]["f1_macro"]}
 
-# sans augmentation
+# no augmentation
 tr_na, val_na, te_na, (m_na, s_na) = get_datasets(res=RES_SMALL, smoke_n=SMOKE_N, augment=False)
 tl_na, vl_na, te_na_l = make_loaders(tr_na, val_na, te_na, batch_size=BATCH, num_workers=NUM_WORKERS)
 cnn_na, _ = fit(GalaxyCNN(), tl_na, vl_na, epochs=EPOCHS_CNN, lr=1e-3, criterion=crit,
                 device=device, verbose=False)
 _, yt, yp = evaluate(cnn_na, te_na_l, crit, device)
-abl["sans augmentation"] = summary_metrics(yt, yp)["f1_macro"]
+abl["no augmentation"] = summary_metrics(yt, yp)["f1_macro"]
 
-# sans BatchNorm
+# no BatchNorm
 cnn_nobn, _ = fit(GalaxyCNN(use_bn=False), tl, vl, epochs=EPOCHS_CNN, lr=1e-3, criterion=crit,
                   device=device, verbose=False)
 _, yt, yp = evaluate(cnn_nobn, te, crit, device)
-abl["sans BatchNorm"] = summary_metrics(yt, yp)["f1_macro"]
+abl["no BatchNorm"] = summary_metrics(yt, yp)["f1_macro"]
 
-# On ajoute les ablations à results.json (pour l'injection dans le rapport).
+# We add the ablations to results.json (for injection into the report).
 try:
     _r = json.load(open(project_root() / "results.json"))
     _r["ablations"] = {k: round(v, 4) for k, v in abl.items()}
     json.dump(_r, open(project_root() / "results.json", "w"), indent=2, ensure_ascii=False)
 except Exception as e:
-    print("maj results.json:", e)
+    print("update results.json:", e)
 
 pd.DataFrame({"f1_macro (test)": {k: round(v, 3) for k, v in abl.items()}})""")
 
 md(r"""## Conclusion
 
-L'échelle baseline → CNN → ResNet montre concrètement l'apport de la convolution, puis du
-transfer learning. Grad-CAM confirme que le réseau s'appuie sur les structures morphologiques
-pertinentes. Limites : labels bruités de Galaxy Zoo, fort déséquilibre (la classe Cigar Shaped
-à 334 images reste la plus difficile), et coût d'entraînement.
+The baseline → CNN → ResNet scale concretely shows the contribution of convolution, then of
+transfer learning. Grad-CAM confirms that the network relies on the relevant morphological
+structures. Limits: noisy Galaxy Zoo labels, strong imbalance (the Cigar Shaped class
+with 334 images stays the hardest), and training cost.
 
-**Pour le run complet sur Colab :** activer le GPU T4, garder `FULL_RUN=True`, exécuter tout le
-notebook, puis récupérer `figures/` et `results.json`.""")
+**For the full run on Colab:** enable the T4 GPU, keep `FULL_RUN=True`, run the whole
+notebook, then retrieve `figures/` and `results.json`.""")
 
 nb["cells"] = cells
 nb["metadata"] = {
@@ -347,4 +347,4 @@ nb["metadata"] = {
 }
 out = ROOT / "galaxy_cnn.ipynb"
 nbf.write(nb, out)
-print(f"écrit {out} ({len(cells)} cellules)")
+print(f"written {out} ({len(cells)} cells)")

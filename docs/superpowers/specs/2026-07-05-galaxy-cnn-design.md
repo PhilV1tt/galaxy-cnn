@@ -1,25 +1,25 @@
-# Design — Galaxy10 DECaLS : classification morphologique par CNN
+# Design: Galaxy10 DECaLS: morphological classification with CNN
 
-Date : 2026-07-05. Échéance : 2026-07-06 (soir). Sprint ~1 jour.
-Groupe (5) : Patrick Yvan Eyike, Philémon Vittet, Sidi Hamadi, Abdelrahman Dahy, Ines Lylia Zerdani.
+Date: 2026-07-05. Deadline: 2026-07-06 (evening). Sprint ~1 day.
+Group (5): Patrick Yvan Eyike, Philémon Vittet, Sidi Hamadi, Abdelrahman Dahy, Ines Lylia Zerdani.
 
-## 1. Objectif
+## 1. Goal
 
-Classifier la morphologie de galaxies (10 classes) à partir d'images couleur, et
-raconter une histoire claire en trois niveaux : **que gagne-t-on avec la convolution ?**
-Baseline sans convolution (régression logistique, MLP) < CNN maison < transfer learning
-(ResNet18 pré-entraîné). Interprétation par Grad-CAM. Lien physique : l'équivariance par
-translation du CNN est une symétrie imposée à l'architecture.
+Classify galaxy morphology (10 classes) from color images, and
+tell a clear story in three levels: **what do we gain with convolution?**
+Baseline without convolution (logistic regression, MLP) < custom CNN < transfer learning
+(pretrained ResNet18). Interpretation with Grad-CAM. Physical link: the translation
+equivariance of the CNN is a symmetry imposed on the architecture.
 
-## 2. Données
+## 2. Data
 
-`matthieulel/galaxy10_decals` (Hugging Face). 17 736 images 256x256 RGB (bandes g, r, z),
-10 classes. Labels Galaxy Zoo, relevé DESI Legacy Imaging Surveys. Schéma : `image` (PIL),
+`matthieulel/galaxy10_decals` (Hugging Face). 17 736 images 256x256 RGB (g, r, z bands),
+10 classes. Galaxy Zoo labels, DESI Legacy Imaging Surveys survey. Schema: `image` (PIL),
 `label` (uint8 0-9).
 
-Effectifs par classe (déséquilibre marqué, facteur ~8) :
+Class counts (strong imbalance, factor ~8):
 
-| id | classe | n |
+| id | class | n |
 |----|--------|---|
 | 0 | Disturbed | 1081 |
 | 1 | Merging | 1853 |
@@ -32,112 +32,112 @@ Effectifs par classe (déséquilibre marqué, facteur ~8) :
 | 8 | Edge-on without Bulge | 1423 |
 | 9 | Edge-on with Bulge | 1873 |
 
-**Split.** Le dataset fournit déjà `train` (16 000) et `test` (1 800). On garde le **test
-officiel comme test final, jamais touché**. On découpe un **validation stratifié 15 %** dans
-le train (seed figé). Toutes les décisions de tuning se prennent sur la validation.
+**Split.** The dataset already provides `train` (16 000) and `test` (1 800). We keep the **official
+test as the final test, never touched**. We carve out a **stratified 15 % validation** in
+the train (fixed seed). All tuning decisions are made on the validation.
 
-**Préprocessing.** Redimensionnement 256 -> 64 px (itération, baselines, premiers CNN) puis
-128 px (runs finaux CNN + ResNet). Normalisation par mean/std calculés **sur le train
-uniquement** (par canal). Cache des tenseurs décodés en `.pt` pour éviter de re-décoder 2,3 Go
-à chaque run.
+**Preprocessing.** Resize 256 -> 64 px (iteration, baselines, first CNNs) then
+128 px (final CNN + ResNet runs). Normalization by mean/std computed **on the train
+only** (per channel). Cache the decoded tensors as `.pt` to avoid re-decoding 2.3 GB
+on each run.
 
-**Augmentation (train uniquement).** Rotation aléatoire 0-360°, flips H et V, léger jitter
-luminosité/contraste. Justification physique : une galaxie n'a pas d'orientation privilégiée,
-ces transformations sont des invariances réelles du problème. Appliquée après le split, jamais
-sur val/test (pas de fuite de données).
+**Augmentation (train only).** Random rotation 0-360°, H and V flips, slight brightness/contrast
+jitter. Physical justification: a galaxy has no preferred orientation,
+these transforms are real invariances of the problem. Applied after the split, never
+on val/test (no data leakage).
 
-## 3. Modèles
+## 3. Models
 
-**Baseline 1 — Régression logistique** sur pixels aplatis (3x64x64 = 12288 features).
-softmax multinomiale. Volontairement médiocre : aucune notion de structure spatiale.
+**Baseline 1: Logistic regression** on flattened pixels (3x64x64 = 12288 features).
+Multinomial softmax. Deliberately poor: no notion of spatial structure.
 
-**Baseline 2 — MLP** 2 couches cachées (512, 256) + ReLU + dropout sur pixels aplatis.
-Un peu mieux, toujours aveugle à la localité.
+**Baseline 2: MLP** 2 hidden layers (512, 256) + ReLU + dropout on flattened pixels.
+A bit better, still blind to locality.
 
-**CNN maison** (entrée 3x64x64) :
+**Custom CNN** (input 3x64x64):
 
 ```
-Bloc 1 : Conv(3->32, 3x3, pad 1)  -> BN -> ReLU -> MaxPool 2   => 32 x 32 x 32
-Bloc 2 : Conv(32->64, 3x3, pad 1) -> BN -> ReLU -> MaxPool 2   => 64 x 16 x 16
-Bloc 3 : Conv(64->128, 3x3, pad 1)-> BN -> ReLU -> MaxPool 2   => 128 x 8 x 8
-Bloc 4 : Conv(128->256,3x3, pad 1)-> BN -> ReLU -> MaxPool 2   => 256 x 4 x 4
-AdaptiveAvgPool(4x4) (fixe la tête quelle que soit la résolution d'entrée)
-Tête   : Flatten(4096) -> Dropout -> Linear(4096->256) -> ReLU -> Dropout -> Linear(256->10)
+Block 1: Conv(3->32, 3x3, pad 1)  -> BN -> ReLU -> MaxPool 2   => 32 x 32 x 32
+Block 2: Conv(32->64, 3x3, pad 1) -> BN -> ReLU -> MaxPool 2   => 64 x 16 x 16
+Block 3: Conv(64->128, 3x3, pad 1)-> BN -> ReLU -> MaxPool 2   => 128 x 8 x 8
+Block 4: Conv(128->256,3x3, pad 1)-> BN -> ReLU -> MaxPool 2   => 256 x 4 x 4
+AdaptiveAvgPool(4x4) (fixes the head whatever the input resolution)
+Head   : Flatten(4096) -> Dropout -> Linear(4096->256) -> ReLU -> Dropout -> Linear(256->10)
 ```
 
-Nombre de paramètres (à refaire à la main pour la soutenance, vérifié par le code = 1 440 298) :
-- Convs **sans biais** (la BatchNorm fournit le décalage) : 864 + 18 432 + 73 728 + 294 912 = 387 936
-- BatchNorm (2 params par canal) : 64 + 128 + 256 + 512 = 960
-- FC : (4096x256 + 256) + (256x10 + 10) = 1 048 832 + 2 570 = 1 051 402
-- **Total = 1 440 298 (~1,44 M)**, dominé par la première couche FC (73 %).
+Parameter count (to redo by hand for the defense, verified by the code = 1 440 298):
+- Convs **without bias** (BatchNorm provides the shift): 864 + 18 432 + 73 728 + 294 912 = 387 936
+- BatchNorm (2 params per channel): 64 + 128 + 256 + 512 = 960
+- FC: (4096x256 + 256) + (256x10 + 10) = 1 048 832 + 2 570 = 1 051 402
+- **Total = 1 440 298 (~1.44 M)**, dominated by the first FC layer (73 %).
 
-L'`AdaptiveAvgPool(4x4)` garde ~1,44 M params en 64 comme en 128 px. Sans pooling adaptatif,
-passer à 128 px ferait exploser FC1 (16384x256 ≈ 4,2 M) : bon point pédagogique à mentionner.
+`AdaptiveAvgPool(4x4)` keeps ~1.44 M params at 64 as at 128 px. Without adaptive pooling,
+moving to 128 px would blow up FC1 (16384x256 ≈ 4,2 M): a good teaching point to mention.
 
-**Transfer learning — ResNet18** pré-entraîné ImageNet. Deux régimes :
-1. *Feature extraction* : on gèle le backbone, on n'entraîne que la nouvelle `fc` (512->10).
-2. *Fine-tuning* : on dégèle tout (ou `layer4` + `fc`) avec un LR plus faible.
+**Transfer learning: ResNet18** pretrained on ImageNet. Two regimes:
+1. *Feature extraction*: freeze the backbone, train only the new `fc` (512->10).
+2. *Fine-tuning*: unfreeze everything (or `layer4` + `fc`) with a lower LR.
 
-Entrée 3 canaux compatible, redimensionnement à 128 px, normalisation stats ImageNet pour
-le backbone pré-entraîné.
+3-channel input compatible, resize to 128 px, ImageNet-stats normalization for
+the pretrained backbone.
 
-## 4. Entraînement et tuning
+## 4. Training and tuning
 
-- Optimiseur Adam, LR de départ 1e-3 (le plus important à régler), scheduler cosine.
-- Loss `CrossEntropyLoss(weight=...)` pondérée par l'inverse des fréquences (déséquilibre).
-- Early stopping sur **F1 macro** de la validation (pas l'accuracy).
-- Grille légère : LR, batch size, dropout, aug on/off, profondeur. Tableau de runs en pandas.
-- `model.eval()` en évaluation (BN et dropout changent de comportement).
+- Adam optimizer, starting LR 1e-3 (the most important to tune), cosine scheduler.
+- `CrossEntropyLoss(weight=...)` loss weighted by inverse frequencies (imbalance).
+- Early stopping on the validation **macro F1** (not accuracy).
+- Light grid: LR, batch size, dropout, aug on/off, depth. Runs table in pandas.
+- `model.eval()` at evaluation (BN and dropout change behavior).
 
-## 5. Évaluation (sur le test officiel, jamais touché avant)
+## 5. Evaluation (on the official test, never touched before)
 
-Accuracy, precision/recall/F1 par classe + macro et pondéré, matrice de confusion, courbes
-d'apprentissage train/val. Analyse des confusions entre classes voisines (spirales serrées vs
-lâches, rondes vs cigare, edge-on avec/sans bulbe).
+Accuracy, per-class precision/recall/F1 + macro and weighted, confusion matrix, train/val
+learning curves. Analysis of confusions between neighboring classes (tight vs loose
+spirals, round vs cigar, edge-on with/without bulge).
 
-## 6. Interprétation — Grad-CAM
+## 6. Interpretation: Grad-CAM
 
-Implémenté à la main (~30 lignes) : hook forward/backward sur la dernière conv (CNN maison)
-et sur `layer4` (ResNet18). Carte de chaleur = ReLU(somme pondérée des feature maps par le
-gradient moyen de la classe). Heatmaps sur bonnes prédictions ET erreurs : le réseau regarde-t-il
-les bras spiraux, la barre, le compagnon de fusion, ou des artefacts ?
+Implemented by hand (~30 lines): forward/backward hook on the last conv (custom CNN)
+and on `layer4` (ResNet18). Heat map = ReLU(weighted sum of the feature maps by the
+class mean gradient). Heatmaps on correct predictions AND errors: does the network look at
+the spiral arms, the bar, the merging companion, or artifacts?
 
 ## 7. Ablations
 
-- Sans augmentation.
-- Sans BatchNorm.
-Quantifier la perte de F1 macro pour isoler l'apport de chaque ingrédient.
+- Without augmentation.
+- Without BatchNorm.
+Quantify the macro F1 loss to isolate the contribution of each ingredient.
 
-## 8. Livrables (miroir de `../cifar/`)
+## 8. Deliverables (mirror of `../cifar/`)
 
 ```
 final/
-  pyproject.toml            uv : torch, torchvision, datasets, scikit-learn, matplotlib, pandas
+  pyproject.toml            uv: torch, torchvision, datasets, scikit-learn, matplotlib, pandas
   galaxy_cnn.ipynb          sections 0-8
-  galaxy/                   package testable (data, models, train, metrics, gradcam)
+  galaxy/                   testable package (data, models, train, metrics, gradcam)
   figures/                  samples, augment, courbes, confusion, perclass, echelle, gradcam
   report/rapport.tex        + rapport.pdf (LaTeX)
   slides/presentation.tex   + script.md + presentation.pdf (Beamer)
-  data/                     gitignoré (cache .pt local / Drive sur Colab)
+  data/                     gitignored (local .pt cache / Drive on Colab)
 ```
 
-Sections du notebook : 0 Chargement, 1 EDA, 2 Preprocessing et augmentation, 3 Baselines,
-4 CNN maison et tuning, 5 Transfer learning, 6 Évaluation test, 7 Grad-CAM, 8 Ablations.
+Notebook sections: 0 Loading, 1 EDA, 2 Preprocessing and augmentation, 3 Baselines,
+4 Custom CNN and tuning, 5 Transfer learning, 6 Test evaluation, 7 Grad-CAM, 8 Ablations.
 
-Le notebook détecte Colab vs local (device CUDA/MPS, chemin data) et tourne aux deux endroits.
+The notebook detects Colab vs local (CUDA/MPS device, data path) and runs in both places.
 
-## 9. Plan d'exécution (1 jour, sprint parallèle)
+## 9. Execution plan (1 day, parallel sprint)
 
-1. Scaffold repo + env uv + package `galaxy/`. Verif : `uv sync` OK, imports OK.
-2. Smoke test local (streaming ~600 images, CNN 64px, 1-2 epochs sur MPS). Verif : boucle
-   train tourne, une figure produite. Garantit un notebook runnable.
-3. Notebook sections 0-8 orchestrant le package. Verif : exécution locale basse échelle.
-4. En parallèle : rapport LaTeX + slides Beamer + script.md avec placeholders pour les chiffres.
-5. Run complet sur Colab T4 (128px, ResNet, tuning). Récupérer figures + `results.json`.
-6. Injecter les vrais chiffres dans rapport/slides. Compiler les PDF.
+1. Scaffold repo + uv env + `galaxy/` package. Check: `uv sync` OK, imports OK.
+2. Local smoke test (streaming ~600 images, CNN 64px, 1-2 epochs on MPS). Check: train
+   loop runs, one figure produced. Guarantees a runnable notebook.
+3. Notebook sections 0-8 orchestrating the package. Check: low-scale local run.
+4. In parallel: LaTeX report + Beamer slides + script.md with placeholders for the numbers.
+5. Full run on Colab T4 (128px, ResNet, tuning). Collect figures + `results.json`.
+6. Inject the real numbers into report/slides. Compile the PDFs.
 
-## 10. Pièges (rappel)
+## 10. Pitfalls (reminder)
 
-Augmentation après le split, train uniquement. Test jamais touché pendant le tuning. F1 macro,
-pas seulement accuracy. Normaliser avec stats train. LR 1e-3 pour démarrer. Itérer en 64/128,
-pas 256 d'emblée. `model.eval()` à l'évaluation. Checkpoints réguliers sur Colab.
+Augmentation after the split, train only. Test never touched during tuning. Macro F1,
+not just accuracy. Normalize with train stats. LR 1e-3 to start. Iterate at 64/128,
+not 256 right away. `model.eval()` at evaluation. Regular checkpoints on Colab.

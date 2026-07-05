@@ -1,4 +1,4 @@
-"""Package du projet Galaxy10 : classification morphologique de galaxies par CNN."""
+"""Galaxy10 project package: morphological classification of galaxies with a CNN."""
 from __future__ import annotations
 
 from . import config, data, engine, gradcam, metrics, models, viz

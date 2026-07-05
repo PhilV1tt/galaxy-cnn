@@ -70,9 +70,9 @@
     }
   ],
   "ablations": {
-    "CNN complet": 0.6832,
-    "sans augmentation": 0.6866,
-    "sans BatchNorm": 0.7188
+    "full CNN": 0.6832,
+    "no augmentation": 0.6866,
+    "no BatchNorm": 0.7188
   },
   "config": {
     "res_small": 64,

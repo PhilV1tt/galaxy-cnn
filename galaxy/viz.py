@@ -1,4 +1,4 @@
-"""Figures du projet. Chaque fonction sauvegarde dans figures/ et renvoie le chemin."""
+"""Project figures. Each function saves into figures/ and returns the path."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,7 +22,7 @@ def _to_hwc(img_uint8: torch.Tensor) -> np.ndarray:
 
 
 def plot_samples_grid(x_uint8, y, class_names=CLASS_NAMES, name="samples.png"):
-    """Une image par classe (première rencontrée)."""
+    """One image per class (first one found)."""
     y = y.numpy() if torch.is_tensor(y) else np.asarray(y)
     fig, axes = plt.subplots(2, 5, figsize=(13, 5.6))
     for c, ax in enumerate(axes.ravel()):
@@ -31,7 +31,7 @@ def plot_samples_grid(x_uint8, y, class_names=CLASS_NAMES, name="samples.png"):
             ax.imshow(_to_hwc(x_uint8[idx[0]]))
         ax.set_title(f"{c} · {class_names[c]}", fontsize=9)
         ax.axis("off")
-    fig.suptitle("Galaxy10 DECaLS — un exemple par classe", fontsize=12)
+    fig.suptitle("Galaxy10 DECaLS: one example per class", fontsize=12)
     return _save(fig, name)
 
 
@@ -43,13 +43,13 @@ def plot_class_distribution(y, class_names=CLASS_NAMES, name="distribution.png")
     ax.bar(range(len(counts)), counts[order], color="#4a86e8")
     ax.set_xticks(range(len(counts)))
     ax.set_xticklabels([class_names[i] for i in order], rotation=45, ha="right", fontsize=8)
-    ax.set_ylabel("nombre d'images")
-    ax.set_title(f"Distribution des classes (déséquilibre, facteur {counts.max()/counts.min():.1f})")
+    ax.set_ylabel("number of images")
+    ax.set_title(f"Class distribution (imbalance, factor {counts.max()/counts.min():.1f})")
     return _save(fig, name)
 
 
 def plot_augmentation(img_uint8, mean, std, n=6, name="augment.png"):
-    """Une même galaxie augmentée n fois (rotations/flips/jitter), pour illustrer."""
+    """The same galaxy augmented n times (rotations/flips/jitter), for illustration."""
     from torchvision.transforms import v2
 
     disp = v2.Compose([
@@ -67,7 +67,7 @@ def plot_augmentation(img_uint8, mean, std, n=6, name="augment.png"):
         axes[k].imshow(disp(img_uint8).permute(1, 2, 0).clamp(0, 1).numpy())
         axes[k].set_title(f"aug {k}", fontsize=9)
         axes[k].axis("off")
-    fig.suptitle("Augmentation (train uniquement) : invariances physiques", fontsize=11)
+    fig.suptitle("Augmentation (train only): physical invariances", fontsize=11)
     return _save(fig, name)
 
 
@@ -92,20 +92,20 @@ def plot_confusion(cm, class_names=CLASS_NAMES, name="confusion.png", normalized
     ax.set_xticks(range(len(class_names))); ax.set_yticks(range(len(class_names)))
     ax.set_xticklabels(class_names, rotation=45, ha="right", fontsize=8)
     ax.set_yticklabels(class_names, fontsize=8)
-    ax.set_xlabel("prédit"); ax.set_ylabel("vrai")
+    ax.set_xlabel("predicted"); ax.set_ylabel("true")
     fmt = ".2f" if normalized else "d"
     thr = cm.max() / 2 if cm.max() > 0 else 0.5
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
             ax.text(j, i, format(cm[i, j], fmt), ha="center", va="center",
                     color="white" if cm[i, j] > thr else "black", fontsize=7)
-    ax.set_title("Matrice de confusion" + (" (normalisée)" if normalized else ""))
+    ax.set_title("Confusion matrix" + (" (normalized)" if normalized else ""))
     fig.colorbar(im, ax=ax, fraction=0.046)
     return _save(fig, name)
 
 
 def plot_perclass_f1(per_class, name="perclass.png"):
-    """per_class : DataFrame index=classe, colonne 'f1'."""
+    """per_class: DataFrame index=class, column 'f1'."""
     f1 = per_class["f1"].values
     names = list(per_class.index)
     order = np.argsort(f1)
@@ -114,12 +114,12 @@ def plot_perclass_f1(per_class, name="perclass.png"):
     ax.set_yticks(range(len(f1)))
     ax.set_yticklabels([names[i] for i in order], fontsize=8)
     ax.set_xlabel("F1"); ax.set_xlim(0, 1)
-    ax.set_title("F1 par classe (test)")
+    ax.set_title("Per-class F1 (test)")
     return _save(fig, name)
 
 
 def plot_scale_comparison(results: dict, metric="f1_macro", name="echelle.png"):
-    """results : {nom_modele: {metric: valeur}} -> barres baseline -> CNN -> ResNet."""
+    """results: {model_name: {metric: value}} -> baseline -> CNN -> ResNet bars."""
     names = list(results.keys())
     vals = [results[k][metric] for k in names]
     fig, ax = plt.subplots(figsize=(8, 4.5))
@@ -128,5 +128,5 @@ def plot_scale_comparison(results: dict, metric="f1_macro", name="echelle.png"):
     for i, v in enumerate(vals):
         ax.text(i, v + 0.01, f"{v:.3f}", ha="center", fontsize=9)
     ax.set_ylabel(metric); ax.set_ylim(0, 1)
-    ax.set_title("Que gagne-t-on avec la convolution ? (test)")
+    ax.set_title("What does convolution buy? (test)")
     return _save(fig, name)

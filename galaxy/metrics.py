@@ -1,4 +1,4 @@
-"""Métriques d'évaluation (numériques). Les figures sont dans viz.py."""
+"""Evaluation metrics (numeric). Figures live in viz.py."""
 from __future__ import annotations
 
 import numpy as np
@@ -14,7 +14,7 @@ from .config import CLASS_NAMES
 
 
 def summary_metrics(y_true, y_pred) -> dict:
-    """Accuracy + precision/recall/F1 en macro et pondéré."""
+    """Accuracy + precision/recall/F1, macro and weighted."""
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
     p_macro, r_macro, f_macro, _ = precision_recall_fscore_support(
@@ -35,7 +35,7 @@ def summary_metrics(y_true, y_pred) -> dict:
 
 
 def per_class_df(y_true, y_pred, class_names=CLASS_NAMES) -> pd.DataFrame:
-    """Precision/recall/F1/support par classe."""
+    """Precision/recall/F1/support per class."""
     p, r, f, s = precision_recall_fscore_support(
         y_true, y_pred, labels=range(len(class_names)), zero_division=0
     )
@@ -45,7 +45,7 @@ def per_class_df(y_true, y_pred, class_names=CLASS_NAMES) -> pd.DataFrame:
 
 
 def confusion(y_true, y_pred, normalize: str | None = None) -> np.ndarray:
-    """Matrice de confusion. normalize='true' pour des lignes en proportion."""
+    """Confusion matrix. normalize='true' for rows as proportions."""
     n = len(CLASS_NAMES)
     return confusion_matrix(y_true, y_pred, labels=range(n), normalize=normalize)
 

@@ -1,7 +1,7 @@
-"""Vérif rapide du pipeline (sans télécharger les 2,3 Go du train).
+"""Quick pipeline check (without downloading the 2.3 GB train set).
 
-Charge le petit split test officiel, entraîne 3 epochs d'un mini-CNN 64px, évalue,
-et produit toutes les figures + une carte Grad-CAM. Sert à valider l'environnement.
+Loads the small official test split, trains 3 epochs of a mini-CNN 64px, evaluates,
+and produces all figures + a Grad-CAM map. Used to validate the environment.
 
     uv run python smoke_test.py
 """
@@ -46,5 +46,5 @@ viz.plot_confusion(metrics.confusion(yt, yp, normalize="true"))
 viz.plot_perclass_f1(metrics.per_class_df(yt, yp))
 gradcam.plot_gradcam_grid(cnn, cnn.last_conv, test_ds.x[:4], mean, std,
                           y_true=test_ds.y[:4], device=dev)
-print("[figures] samples, distribution, augment, courbes, confusion, perclass, gradcam -> figures/")
+print("[figures] samples, distribution, augment, curves, confusion, perclass, gradcam -> figures/")
 print("SMOKE OK")

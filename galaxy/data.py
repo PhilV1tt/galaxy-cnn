@@ -1,10 +1,10 @@
-"""Chargement, split, normalisation et augmentation de Galaxy10 DECaLS.
+"""Loading, split, normalization and augmentation of Galaxy10 DECaLS.
 
-Pipeline :
-  - décodage HF -> tenseurs uint8 [N,3,res,res] mis en cache par résolution ;
-  - split validation stratifié 15 % pris dans le train (le test officiel reste intact) ;
-  - normalisation par mean/std calculés sur le train uniquement ;
-  - augmentation (rotation 0-360, flips H/V, léger jitter) sur le train seulement.
+Pipeline:
+  - HF decoding -> uint8 tensors [N,3,res,res] cached by resolution;
+  - stratified 15% validation split taken from train (official test stays intact);
+  - normalization by mean/std computed on train only;
+  - augmentation (0-360 rotation, H/V flips, light jitter) on train only.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from torchvision.transforms import v2
 from .config import HF_DATASET, SEED, data_dir
 
 
-# --- Décodage HF -> tenseurs uint8 ------------------------------------------
+# --- HF decoding -> uint8 tensors -------------------------------------------
 def _decode(examples_iter, res: int, n: int | None = None):
     xs, ys = [], []
     for i, ex in enumerate(examples_iter):
@@ -33,7 +33,7 @@ def _decode(examples_iter, res: int, n: int | None = None):
 
 
 def load_split(split: str, res: int, cache: bool = True):
-    """Charge un split complet (train/test) en tenseurs uint8, avec cache disque."""
+    """Load a full split (train/test) as uint8 tensors, with disk cache."""
     from datasets import load_dataset
 
     cache_path = data_dir() / "cache" / f"{split}_{res}.pt"
@@ -49,16 +49,16 @@ def load_split(split: str, res: int, cache: bool = True):
 
 
 def load_stream(split: str, res: int, n: int):
-    """Charge n exemples par streaming (smoke test, sans télécharger tout le parquet)."""
+    """Load n examples by streaming (smoke test, without downloading the whole parquet)."""
     from datasets import load_dataset
 
     ds = load_dataset(HF_DATASET, split=split, streaming=True)
     return _decode(ds, res, n=n)
 
 
-# --- Normalisation ----------------------------------------------------------
+# --- Normalization ----------------------------------------------------------
 def compute_mean_std(x_uint8: torch.Tensor):
-    """mean/std par canal sur des images uint8 (renvoie des floats en [0,1])."""
+    """Per-channel mean/std on uint8 images (returns floats in [0,1])."""
     x = x_uint8.float().div_(255.0)
     mean = x.mean(dim=(0, 2, 3))
     std = x.std(dim=(0, 2, 3))
@@ -67,14 +67,14 @@ def compute_mean_std(x_uint8: torch.Tensor):
 
 # --- Transforms -------------------------------------------------------------
 def build_transforms(mean, std, train: bool):
-    """train=True -> augmentation physique (rotations/flips). Sinon normalisation seule."""
+    """train=True -> physical augmentation (rotations/flips). Otherwise normalization only."""
     mean = tuple(float(m) for m in mean)
     std = tuple(float(s) for s in std)
     if train:
         return v2.Compose([
             v2.RandomHorizontalFlip(),
             v2.RandomVerticalFlip(),
-            v2.RandomRotation(180),  # +/-180 deg : une galaxie n'a pas d'orientation privilégiée
+            v2.RandomRotation(180),  # +/-180 deg: a galaxy has no preferred orientation
             v2.ColorJitter(brightness=0.1, contrast=0.1),
             v2.ToDtype(torch.float32, scale=True),
             v2.Normalize(mean, std),
@@ -86,7 +86,7 @@ def build_transforms(mean, std, train: bool):
 
 
 class GalaxyDataset(Dataset):
-    """Tenseur uint8 en mémoire + transform appliquée à la volée."""
+    """uint8 tensor in memory + transform applied on the fly."""
 
     def __init__(self, x_uint8: torch.Tensor, y: torch.Tensor, transform):
         self.x = x_uint8
@@ -100,7 +100,7 @@ class GalaxyDataset(Dataset):
         return self.transform(self.x[i]), self.y[i]
 
 
-# --- Assemblage -------------------------------------------------------------
+# --- Assembly ---------------------------------------------------------------
 def get_datasets(
     res: int = 64,
     val_frac: float = 0.15,
@@ -111,17 +111,17 @@ def get_datasets(
     std=None,
     augment: bool = True,
 ):
-    """Retourne (train_ds, val_ds, test_ds, (mean, std)).
+    """Returns (train_ds, val_ds, test_ds, (mean, std)).
 
-    smoke_n : si vrai (booléen ou entier), charge le petit split test officiel (1800
-    images, toutes les classes) et le découpe 60/20/20, uniquement pour vérifier que
-    le pipeline tourne sans télécharger les 2,3 Go du train. L'expérience réelle
-    utilise smoke_n=None : le test HF reste le test final, la validation vient du train.
-    mean/std : passer les stats ImageNet pour le ResNet pré-entraîné ; None = stats train.
-    augment=False désactive l'augmentation (ablation).
+    smoke_n: if truthy (boolean or integer), loads the small official test split (1800
+    images, all classes) and splits it 60/20/20, only to check that the pipeline runs
+    without downloading the 2.3 GB of train. The real experiment uses smoke_n=None: the
+    HF test stays the final test, validation comes from train.
+    mean/std: pass ImageNet stats for the pretrained ResNet; None = train stats.
+    augment=False disables augmentation (ablation).
     """
     if smoke_n is not None:
-        x, y = load_split("test", res, cache=cache)  # 1800 imgs, 10 classes garanties
+        x, y = load_split("test", res, cache=cache)  # 1800 imgs, 10 classes guaranteed
         if isinstance(smoke_n, int) and smoke_n < len(y):
             keep, _ = train_test_split(
                 np.arange(len(y)), train_size=smoke_n, stratify=y.numpy(), random_state=seed

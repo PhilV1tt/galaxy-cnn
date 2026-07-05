@@ -1,9 +1,9 @@
-"""Grad-CAM à la main (Selvaraju et al., 2017).
+"""Grad-CAM from scratch (Selvaraju et al., 2017).
 
-Principe : pour la classe cible, on prend le gradient du score par rapport aux
-feature maps de la dernière conv, on en fait une moyenne spatiale (importance de
-chaque canal), on pondère les feature maps, ReLU, puis on redimensionne à la taille
-de l'image. La carte montre *où* le réseau regarde.
+Idea: for the target class, take the gradient of the score with respect to the
+feature maps of the last conv, average it spatially (importance of each channel),
+weight the feature maps, ReLU, then resize to the image size. The map shows
+*where* the network looks.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ class GradCAM:
         self.gradients = grad_out[0].detach()
 
     def __call__(self, x, class_idx: int | None = None):
-        """x : [1,3,H,W] normalisé. Retourne (heatmap [H,W] en [0,1], classe)."""
+        """x: [1,3,H,W] normalized. Returns (heatmap [H,W] in [0,1], class)."""
         self.model.eval()
         out = self.model(x)
         if class_idx is None:
@@ -62,7 +62,7 @@ def plot_gradcam_grid(
     device=None,
     name="gradcam.png",
 ):
-    """Pour chaque image (uint8 [3,H,W]) : original + carte Grad-CAM superposée."""
+    """For each image (uint8 [3,H,W]): original + overlaid Grad-CAM map."""
     device = device or get_device()
     model.to(device)
     cam = GradCAM(model, target_layer)
@@ -81,13 +81,13 @@ def plot_gradcam_grid(
         title = class_names[pred]
         if y_true is not None:
             t = int(y_true[k])
-            ok = "OK" if t == pred else f"vrai {class_names[t]}"
+            ok = "OK" if t == pred else f"true {class_names[t]}"
             title = f"pred {class_names[pred]}\n{ok}"
         axes[0, k].set_title(title, fontsize=8)
         axes[0, k].axis("off")
         axes[1, k].imshow(_overlay(hwc, heat))
         axes[1, k].axis("off")
-    fig.suptitle("Grad-CAM : où le réseau regarde", fontsize=12)
+    fig.suptitle("Grad-CAM: where the network looks", fontsize=12)
     path = figures_dir() / name
     fig.savefig(path, dpi=130, bbox_inches="tight")
     plt.close(fig)

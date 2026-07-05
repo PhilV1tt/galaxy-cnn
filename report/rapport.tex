@@ -1,7 +1,7 @@
 \documentclass[11pt,a4paper]{article}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage[french]{babel}
+\usepackage[english]{babel}
 \usepackage[margin=2.4cm]{geometry}
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -18,91 +18,91 @@
   language=Python,breaklines=true,frame=single,showstringspaces=false,
   columns=fullflexible,aboveskip=6pt,belowskip=6pt}
 
-% ==== BEGIN RESULTS (valeurs injectées depuis results.json par inject_results.py) ====
-\newcommand{\accLogReg}{0{,}280}
-\newcommand{\fLogReg}{0{,}259}
-\newcommand{\accMLP}{0{,}439}
-\newcommand{\fMLP}{0{,}404}
-\newcommand{\accCNN}{0{,}705}
-\newcommand{\fCNN}{0{,}683}
-\newcommand{\accResnet}{0{,}800}
-\newcommand{\fResnet}{0{,}780}
+% ==== BEGIN RESULTS (values injected from results.json by inject_results.py) ====
+\newcommand{\accLogReg}{0.280}
+\newcommand{\fLogReg}{0.259}
+\newcommand{\fwLogReg}{0.283}
+\newcommand{\accMLP}{0.439}
+\newcommand{\fMLP}{0.404}
+\newcommand{\fwMLP}{0.432}
+\newcommand{\accCNN}{0.705}
+\newcommand{\fCNN}{0.683}
+\newcommand{\fwCNN}{0.691}
+\newcommand{\accResnet}{0.800}
+\newcommand{\fResnet}{0.780}
+\newcommand{\fwResnet}{0.796}
 \newcommand{\bestlr}{3\times10^{-4}}
 \newcommand{\cnnparams}{1\,440\,298}
 \newcommand{\bestclass}{Round Smooth}
 \newcommand{\worstclass}{Disturbed}
-\newcommand{\ablbase}{0{,}683}
-\newcommand{\ablnoaug}{0{,}687}
-\newcommand{\ablnobn}{0{,}719}
+\newcommand{\ablbase}{0.683}
+\newcommand{\ablnoaug}{0.687}
+\newcommand{\ablnobn}{0.719}
 % ==== END RESULTS ====
 
 \newcommand{\code}[1]{\texttt{#1}}
 
-\title{Classification morphologique de galaxies par réseau de neurones convolutif\\
-\large Galaxy10 DECaLS : baselines, CNN maison, transfer learning et Grad-CAM}
-\author{Patrick Yvan Eyike \and Philémon Vittet \and Sidi Hamadi \and
+\title{Galaxy morphology classification with a convolutional neural network\\
+\large Galaxy10 DECaLS: baselines, a custom CNN, transfer learning, and Grad-CAM}
+\author{Philémon Vittet \and Patrick Yvan Eyike \and Sidi Hamadi \and
 Abdelrahman Dahy \and Inès Lylia Zerdani}
-\date{Juillet 2026}
+\date{July 2026}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
 \noindent
-On classe la morphologie de 17\,736 galaxies du relevé DESI Legacy Imaging Surveys
-(dataset Galaxy10 DECaLS, labels Galaxy Zoo) en 10 classes, à l'aide d'un réseau
-convolutif. Pour isoler l'apport de la convolution, on compare trois niveaux :
-baselines sans convolution (régression logistique, MLP), un CNN maison de
-\cnnparams{} paramètres, et un ResNet18 pré-entraîné sur ImageNet. Le meilleur modèle
-atteint une accuracy de \accResnet{} et un F1 macro de \fResnet{} sur le test officiel.
-On interprète les prédictions par Grad-CAM et on quantifie l'apport de l'augmentation
-et de la BatchNorm par ablation. Le rapport insiste sur un point de fond : l'équivariance
-par translation du CNN est une symétrie imposée à l'architecture, dans l'esprit des
-symétries en physique.
+We classify the morphology of 17\,736 galaxies from the DESI Legacy Imaging Surveys
+(the Galaxy10 DECaLS dataset, with Galaxy Zoo labels) into 10 classes. The model is a
+convolutional network. To isolate what convolution brings, we compare three levels:
+baselines with no convolution (logistic regression, MLP), a custom CNN of \cnnparams{}
+parameters, and a ResNet18 pretrained on ImageNet. The best model reaches an accuracy of
+\accResnet{} and a macro-F1 of \fResnet{} on the official test set. We interpret the
+predictions with Grad-CAM. We also measure the effect of augmentation and BatchNorm through
+ablations. One idea runs through the report: the translation equivariance of a CNN is a
+symmetry built into the architecture, in the spirit of symmetries in physics.
 \end{abstract}
 
-\section{Introduction et contexte}
+\section{Introduction and context}
 
-La morphologie d'une galaxie (spirale, elliptique, barrée, en fusion) porte une
-information physique : elle est liée à l'histoire de formation, à l'environnement et à
-la dynamique du système. À l'échelle des grands relevés, trier des millions de galaxies
-à la main est impossible. Le projet Galaxy Zoo a mobilisé des centaines de milliers de
-volontaires pour labelliser des images ; c'est de là que viennent nos étiquettes. La
-question de ce projet est simple : un réseau convolutif peut-il reproduire ce tri
-morphologique de façon automatique et fiable ?
+The morphology of a galaxy (spiral, elliptical, barred, merging) carries physical
+information. It relates to the formation history, the environment, and the dynamics of the
+system. At survey scale, sorting millions of galaxies by hand is impossible. The Galaxy Zoo
+project asked hundreds of thousands of volunteers to label images. Our labels come from
+there. The question of this project is simple. Can a convolutional network reproduce this
+morphological sorting, automatically and reliably?
 
-On répond en construisant une échelle de trois modèles de complexité croissante, de la
-baseline aveugle à la structure spatiale jusqu'au réseau pré-entraîné, puis en
-interprétant ce que le réseau a appris. Historiquement, cette famille de modèles remonte
-à LeNet (LeCun, 1998), premier CNN entraîné par rétropropagation pour la lecture de
-chiffres, et à AlexNet (Krizhevsky, 2012), qui a démontré à grande échelle sur ImageNet
-la supériorité des CNN profonds et relancé tout le domaine.
+We answer it with a scale of three models of growing complexity. We go from a baseline that
+is blind to spatial structure up to a pretrained network. Then we interpret what the model
+learned. Historically, this family of models goes back to LeNet (LeCun, 1998), the first CNN
+trained by backpropagation for digit reading. It goes back to AlexNet (Krizhevsky, 2012),
+which showed at scale on ImageNet that deep CNNs win, and relaunched the whole field.
 
-\paragraph{Travaux liés.} La classification morphologique automatique de galaxies par
-apprentissage profond est aujourd'hui bien établie. Dieleman et al. (2015) ont remporté le
-concours Galaxy Zoo avec un CNN exploitant explicitement les symétries de rotation des
-images, confirmant l'intérêt d'encoder les invariances du problème dans l'architecture ou
-l'entraînement. Le jeu de données Galaxy10, dérivé de Galaxy Zoo et du relevé DESI Legacy
-Imaging Surveys, sert de banc d'essai standard pour ce type de tâche. Notre contribution
-n'est pas une nouvelle architecture mais une étude pédagogique contrôlée : isoler l'apport
-de la convolution par une échelle de modèles, puis interpréter le réseau et mesurer l'effet
-de chaque ingrédient de régularisation.
+\paragraph{Related work.} Automatic galaxy morphology classification with deep learning is
+now well established. Dieleman et al. (2015) won the Galaxy Zoo challenge with a CNN that
+used the rotation symmetries of the images explicitly. This confirmed the value of encoding
+the invariances of the problem into the architecture or the training. Galaxy10, derived from
+Galaxy Zoo and the DESI Legacy Imaging Surveys, is a standard benchmark for this task. Our
+contribution is not a new architecture. It is a controlled teaching study: isolate the value
+of convolution with a scale of models, then interpret the network and measure the effect of
+each regularization ingredient.
 
-\section{Données}
+\section{Data}
 
-Galaxy10 DECaLS contient 17\,736 images couleur $256\times256$ (bandes $g$, $r$, $z$ du
-relevé DESI Legacy Imaging Surveys), réparties en 10 classes morphologiques. Le
-tableau~\ref{tab:classes} donne les effectifs : la distribution est fortement
-déséquilibrée, d'un facteur proche de 8 entre la classe la plus rare (Cigar Shaped, 334
-images) et la plus fréquente (Round Smooth, 2\,645). Ce déséquilibre est un point central
-de l'évaluation.
+Galaxy10 DECaLS holds 17\,736 color images of size $256\times256$ (bands $g$, $r$, $z$ from
+the DESI Legacy Imaging Surveys), split into 10 morphological classes.
+Table~\ref{tab:classes} gives the counts. The distribution is strongly imbalanced, by a
+factor close to 8 between the rarest class (Cigar Shaped, 334 images) and the most frequent
+(Round Smooth, 2\,645). This imbalance is central to the evaluation. Average per-channel
+color also differs slightly across classes, but the shape is the real signal, not the color.
 
 \begin{table}[h]
 \centering
 \small
 \begin{tabular}{clr@{\qquad}clr}
 \toprule
-id & classe & $n$ & id & classe & $n$ \\
+id & class & $n$ & id & class & $n$ \\
 \midrule
 0 & Disturbed & 1\,081 & 5 & Barred Spiral & 2\,043 \\
 1 & Merging & 1\,853 & 6 & Unbarred Tight Spiral & 1\,829 \\
@@ -111,170 +111,157 @@ id & classe & $n$ & id & classe & $n$ \\
 4 & Cigar Shaped Smooth & 334 & 9 & Edge-on with Bulge & 1\,873 \\
 \bottomrule
 \end{tabular}
-\caption{Les 10 classes de Galaxy10 DECaLS et leurs effectifs.}
+\caption{The 10 Galaxy10 DECaLS classes and their counts.}
 \label{tab:classes}
 \end{table}
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=\textwidth]{samples.png}
-\caption{Un exemple par classe. Les classes voisines sont visuellement proches :
-spirales serrées contre lâches, rondes contre cigare, edge-on avec ou sans bulbe.}
+\caption{One example per class. Neighboring classes look alike: tight vs loose spirals,
+round vs cigar, edge-on with or without a bulge.}
 \label{fig:samples}
 \end{figure}
 
-\paragraph{Découpage.} Le dataset fournit déjà un \code{train} (16\,000) et un
-\code{test} (1\,800). On garde le test officiel comme test final, jamais utilisé pendant
-le développement, et on tire une validation stratifiée de 15\,\% dans le train (seed
-figé). Toutes les décisions (choix de modèle, hyperparamètres) se prennent sur la
-validation. Ce protocole évite deux fuites classiques : décider sur le test, et augmenter
-les données avant le découpage.
+\paragraph{Split.} The dataset ships with a \code{train} split (15\,962 images) and a
+\code{test} split (1\,774), which together make the 17\,736 total. We keep the official test
+set as the final test set. We never use it during development. We take a stratified
+validation set, 15\,\% of the train split (about 2\,395 images), with a fixed seed. All
+decisions (model choice, hyperparameters) are made on the validation set. This protocol
+avoids two classic leaks: deciding on the test set, and augmenting the data before the split.
 
-\section{Éléments de théorie}
+\section{Theory}
 
-\subsection{Du perceptron au réseau profond}
+\subsection{From the perceptron to a deep network}
 
-Un réseau de neurones enchaîne des couches affines $z = Wx + b$ suivies d'une
-non-linéarité, typiquement la ReLU $\sigma(z)=\max(0,z)$. La dernière couche produit un
-vecteur de scores transformé en probabilités par la softmax
-$p_k = e^{z_k} / \sum_j e^{z_j}$. On entraîne en minimisant l'entropie croisée
+A neural network stacks affine layers $z = Wx + b$ followed by a nonlinearity, usually the
+ReLU $\sigma(z)=\max(0,z)$. The last layer produces scores, turned into probabilities by the
+softmax $p_k = e^{z_k} / \sum_j e^{z_j}$. We train by minimizing the cross-entropy
 \begin{equation}
-\mathcal{L} = -\sum_{k} y_k \log p_k = -\log p_{y},
+\mathcal{L} = -\sum_{k} y_k \log p_k = -\log p_{y}.
 \end{equation}
-qui n'est autre que la log-vraisemblance négative du bon label sous le modèle : minimiser
-l'entropie croisée revient à maximiser la vraisemblance des données. Les gradients se
-calculent par rétropropagation (application organisée de la règle de la chaîne, de la
-loss vers les poids), et on met à jour les paramètres par descente de gradient
-stochastique ou, ici, par Adam. Le learning rate est l'hyperparamètre le plus sensible :
-trop grand, la loss diverge ; trop petit, rien n'apprend.
+This is the negative log-likelihood of the correct label under the model. Minimizing the
+cross-entropy is the same as maximizing the likelihood of the data. The gradients come from
+backpropagation, the chain rule applied in order, from the loss back to the weights. We update
+the weights with Adam.
 
-Concrètement, la rétropropagation calcule $\partial\mathcal{L}/\partial W$ pour chaque
-couche en propageant le gradient de la sortie vers l'entrée : chaque couche reçoit le
-gradient amont, le combine avec la dérivée locale de son opération, et transmet le résultat
-à la couche précédente. Adam raffine la descente de gradient en gardant deux moyennes
-mobiles par paramètre, celle du gradient (moment) et celle de son carré, ce qui adapte le
-pas à chaque coordonnée et rend l'entraînement robuste au choix initial du learning rate.
-On y ajoute un scheduler cosine qui décroît progressivement le pas, et un early stopping qui
-arrête l'entraînement quand le F1 macro de validation cesse de progresser, pour éviter le
-sur-apprentissage.
+Backpropagation computes $\partial\mathcal{L}/\partial W$ for each layer. It sends the
+gradient from the output back to the input. Each layer takes the incoming gradient, combines
+it with the local derivative of its operation, and passes the result to the previous layer.
+Adam keeps two running averages per parameter, one of the gradient and one of its square. It
+adapts the step per coordinate. This makes training robust to the initial learning rate. We
+also use a cosine schedule that shrinks the step over time, and early stopping when the
+validation macro-F1 stops improving. The learning rate is the most sensitive
+hyperparameter. Too large, the loss diverges. Too small, nothing learns.
 
-\subsection{La convolution 2D}
+\subsection{The 2D convolution}
 
-Une couche convolutive fait glisser un même petit filtre sur toute l'image et calcule, en
-chaque position, une somme pondérée locale :
+A convolutional layer slides a small filter over the whole image. At each position it
+computes a local weighted sum:
 \begin{equation}
 (I * K)_{i,j} = \sum_{m}\sum_{n} I_{i+m,\,j+n}\, K_{m,n}.
 \end{equation}
-C'est exactement la convolution discrète familière en traitement du signal, le filtre
-jouant le rôle de réponse impulsionnelle : chaque canal de sortie est un détecteur d'un
-motif local (bord, tache, orientation). Deux propriétés en découlent.
+This is the discrete convolution from signal processing, with the filter as the impulse
+response. Each output channel detects one local pattern (an edge, a blob, an orientation).
+Two properties follow.
 
-\emph{Partage de poids.} Le même filtre sert partout dans l'image. Le nombre de paramètres
-ne dépend donc pas de la taille de l'image mais seulement de la taille du filtre et du
-nombre de canaux, ce qui rend l'apprentissage statistiquement efficace et régularise le
-modèle.
+\emph{Weight sharing.} The same filter is used everywhere in the image. The number of
+parameters does not depend on the image size. It depends only on the filter size and the
+number of channels. This makes learning efficient and acts as a regularizer.
 
 \begin{center}
 \fbox{\parbox{0.93\textwidth}{
-\textbf{Équivariance par translation et symétries.} Comme le filtre est appliqué de façon
-identique partout, translater un motif dans l'image translate d'autant sa réponse :
-$f(T_v\,x) = T_v\,f(x)$. Le CNN encode donc \emph{a priori} une symétrie du problème dans
-son architecture, plutôt que de devoir l'apprendre. C'est le même principe qu'en physique,
-où l'on impose les symétries d'un système (invariances par translation, rotation) avant de
-résoudre les équations. Une galaxie n'ayant pas de position ni d'orientation privilégiée
-dans le ciel, ces invariances sont physiquement justifiées, et l'on complète l'équivariance
-par translation du CNN avec une augmentation par rotations et symétries (section~4).
+\textbf{Translation equivariance and symmetries.} The filter is applied the same way
+everywhere. So moving a pattern in the image moves its response by the same amount:
+$f(T_v\,x) = T_v\,f(x)$. The CNN encodes a symmetry of the problem in its architecture,
+instead of having to learn it. This is the same idea as in physics, where we impose the
+symmetries of a system (translation, rotation invariance) before solving the equations. A
+galaxy has no preferred position or orientation in the sky. So these invariances are
+physically justified. We complete the translation equivariance of the CNN with augmentation
+by rotations and flips (see the regularization section below).
 }}
 \end{center}
 
-\subsection{Architecture et champ réceptif}
+\subsection{Architecture and receptive field}
 
-On empile des blocs \code{Conv $\to$ BatchNorm $\to$ ReLU $\to$ MaxPool}. Le pooling réduit
-la résolution spatiale et augmente le champ réceptif : les couches profondes voient une
-portion de plus en plus grande de l'image d'origine, ce qui construit une hiérarchie de
-features, des bords locaux aux textures puis aux formes globales (bras spiraux, barre,
-compagnon de fusion). Quantitativement, chaque convolution $3\times3$ élargit le champ
-réceptif de 2 pixels et chaque MaxPool le double : après nos quatre blocs, un neurone de la
-dernière carte voit une portion de l'image d'entrée bien plus large que $3\times3$, ce qui
-lui permet de répondre à une structure morphologique entière plutôt qu'à un simple bord.
+We stack blocks of \code{Conv $\to$ BatchNorm $\to$ ReLU $\to$ MaxPool}. Pooling lowers the
+spatial resolution and grows the receptive field. Deep layers see a larger part of the input
+image. This builds a hierarchy of features, from local edges to textures to global shapes
+(spiral arms, the bar, a merging companion). In numbers, each $3\times3$ convolution grows
+the receptive field by 2 pixels, and each MaxPool doubles it. After our four blocks, a unit
+of the last map sees a large part of the input. So it can respond to a whole morphological
+structure, not just an edge.
 
-\subsection{Dimensionnement et nombre de paramètres}
+\subsection{Sizing and parameter count}
 
-Notre CNN prend une entrée $3\times64\times64$. Une convolution $3\times3$ avec padding 1
-conserve la taille spatiale ; chaque MaxPool la divise par deux. Le
-tableau~\ref{tab:dims} suit les dimensions bloc par bloc.
+Our CNN takes a $3\times64\times64$ input. A $3\times3$ convolution with padding 1 keeps the
+spatial size. Each MaxPool halves it. Table~\ref{tab:dims} follows the sizes block by block.
 
 \begin{table}[h]
 \centering
 \small
 \begin{tabular}{lcc}
 \toprule
-couche & sortie $(C,H,W)$ & poids conv (sans biais) \\
+layer & output $(C,H,W)$ & conv weights (no bias) \\
 \midrule
-entrée & $3\times64\times64$ & -- \\
-bloc 1 : Conv$(3\to32)$+pool & $32\times32\times32$ & $3\cdot32\cdot9 = 864$ \\
-bloc 2 : Conv$(32\to64)$+pool & $64\times16\times16$ & $32\cdot64\cdot9 = 18\,432$ \\
-bloc 3 : Conv$(64\to128)$+pool & $128\times8\times8$ & $64\cdot128\cdot9 = 73\,728$ \\
-bloc 4 : Conv$(128\to256)$+pool & $256\times4\times4$ & $128\cdot256\cdot9 = 294\,912$ \\
+input & $3\times64\times64$ & -- \\
+block 1: Conv$(3\to32)$+pool & $32\times32\times32$ & $3\cdot32\cdot9 = 864$ \\
+block 2: Conv$(32\to64)$+pool & $64\times16\times16$ & $32\cdot64\cdot9 = 18\,432$ \\
+block 3: Conv$(64\to128)$+pool & $128\times8\times8$ & $64\cdot128\cdot9 = 73\,728$ \\
+block 4: Conv$(128\to256)$+pool & $256\times4\times4$ & $128\cdot256\cdot9 = 294\,912$ \\
 AdaptiveAvgPool$(4\times4)$ & $256\times4\times4$ & -- \\
 FC $4096\to256$ & 256 & $4096\cdot256+256 = 1\,048\,832$ \\
 FC $256\to10$ & 10 & $256\cdot10+10 = 2\,570$ \\
 \bottomrule
 \end{tabular}
-\caption{Dimensions et paramètres du CNN maison. Les convolutions sont sans biais (la
-BatchNorm fournit le décalage). En ajoutant les $2$ paramètres par canal de BatchNorm
-($64+128+256+512 = 960$), le total est de \cnnparams{} paramètres, dominé à 73\,\% par la
-première couche dense. L'\code{AdaptiveAvgPool} fixe la taille de la tête, ce qui garde ce
-compte identique en 64 comme en 128 px.}
+\caption{Sizes and parameters of the custom CNN. Convolutions have no bias (BatchNorm
+provides the shift). Adding the 2 parameters per channel of BatchNorm
+($64+128+256+512 = 960$), the total is \cnnparams{} parameters. The first dense layer holds
+73\,\% of them. The \code{AdaptiveAvgPool} fixes the head size, so this count is the same at
+64 or 128 px.}
 \label{tab:dims}
 \end{table}
 
-\subsection{Régularisation}
+\subsection{Regularization}
 
-Un réseau à plus d'un million de paramètres sur quelques milliers d'images sur-apprend
-facilement. On combine trois régularisations. Le \emph{dropout} éteint aléatoirement des
-unités pendant l'entraînement. La \emph{BatchNorm} normalise les activations par mini-lot,
-ce qui stabilise et accélère l'apprentissage. La \emph{data augmentation} enrichit
-artificiellement le train avec des transformations qui préservent le label : ici rotations
-0--360$^\circ$, symétries horizontales et verticales, léger jitter de luminosité. Comme
-souligné plus haut, ces transformations sont des invariances physiques du problème et non
-un simple bruit.
+A network with more than a million parameters on a few thousand images overfits easily. We
+combine three regularizers. \emph{Dropout} randomly turns off units during training.
+\emph{BatchNorm} normalizes activations per mini-batch, which stabilizes and speeds up
+training. \emph{Data augmentation} enriches the train set with label-preserving transforms:
+rotations 0--360$^\circ$, horizontal and vertical flips, a light brightness jitter. As noted
+above, these transforms are physical invariances of the problem, not just noise.
 
 \subsection{Transfer learning}
 
-Plutôt que d'apprendre de zéro, on réutilise un ResNet18 pré-entraîné sur ImageNet. Le
-ResNet introduit les connexions résiduelles $y = \mathcal{F}(x)+x$, qui laissent le
-gradient circuler et permettent d'entraîner des réseaux profonds. On remplace la dernière
-couche par 10 sorties et on procède en deux temps : \emph{feature extraction} (backbone
-gelé, on n'entraîne que la tête) puis \emph{fine-tuning} (tout dégelé, learning rate plus
-faible).
+Instead of learning from scratch, we reuse a ResNet18 pretrained on ImageNet. ResNet adds
+residual connections $y = \mathcal{F}(x)+x$. They let the gradient flow and allow deep
+networks to train. We replace the last layer with 10 outputs. We proceed in two steps. First
+feature extraction: the backbone is frozen and we train only the head. Then fine-tuning:
+everything is unfrozen with a smaller learning rate.
 
-\section{Pipeline expérimental}
+\section{Experimental setup}
 
-Les images sont redimensionnées en 64 px (baselines et CNN) et 128 px (ResNet), puis
-normalisées canal par canal avec des statistiques calculées \emph{sur le train
-uniquement}. L'augmentation n'est appliquée qu'au train, jamais à la validation ni au
-test. Le déséquilibre est traité en pondérant l'entropie croisée par l'inverse des
-fréquences de classe, et l'évaluation privilégie le F1 macro (qui traite toutes les
-classes à égalité) plutôt que la seule accuracy. L'entraînement utilise Adam, un scheduler
-cosine et un early stopping sur le F1 macro de validation. Le code est organisé en un
-package Python réutilisable et un notebook auto-portant ; les runs tournent indifféremment
-en local (Mac, backend MPS) et sur Colab (GPU T4), avec détection automatique du device.
+Images are resized to 64 px (baselines and CNN) and 128 px (ResNet), then normalized channel
+by channel with statistics computed on the train set only. Augmentation is applied to the
+train set only, never to validation or test. We handle the imbalance by weighting the
+cross-entropy by the inverse class frequency. The evaluation favors macro-F1, which treats
+all classes equally, over accuracy alone. Training uses Adam, a cosine schedule, and early
+stopping on the validation macro-F1. The code is a reusable Python package plus a
+self-contained notebook. Runs work in local (Mac, MPS backend) and on Colab (T4 GPU), with
+automatic device detection.
 
-\paragraph{Protocole et reproductibilité.} Le tirage de validation, l'initialisation des
-poids et le mélange des lots sont contrôlés par une graine fixe (42). La validation
-représente 15\,\% du train (soit environ 2\,400 images), le test officiel 1\,800 images. Les
-lots font 128 images, l'optimiseur est Adam avec un scheduler cosine, et l'early stopping a
-une patience de 8 epochs. Les statistiques de normalisation, la meilleure architecture et les
-hyperparamètres sont figés à partir de la validation, puis appliqués une seule fois au test.
-L'ensemble (chargement, découpage, entraînement, métriques, figures, Grad-CAM) est
-déterministe à graine donnée, ce qui rend les résultats reproductibles.
+\paragraph{Protocol and reproducibility.} The validation draw, the weight init, and the batch
+shuffling are controlled by a fixed seed (42). The validation set is 15\,\% of the train
+split (about 2\,395 images). The official test set has 1\,774 images. Batches hold 128
+images. The optimizer is Adam with a cosine schedule. Early stopping has a patience of 8
+epochs. The normalization statistics, the best architecture, and the hyperparameters are
+frozen from the validation set, then applied once to the test set. The whole pipeline is
+deterministic for a given seed, so the results are reproducible.
 
-\section{Détails d'implémentation}
+\section{Implementation notes}
 
-Le cœur du code tient en peu de lignes. Un bloc convolutif enchaîne une convolution sans
-biais, une BatchNorm, une ReLU et un pooling ; le CNN empile quatre de ces blocs puis une
-tête dense.
+The core of the code is short. A convolution block chains a bias-free convolution, a
+BatchNorm, a ReLU, and a pooling. The CNN stacks four such blocks and a dense head.
 
 \begin{lstlisting}
 def _conv_block(in_c, out_c, use_bn=True):
@@ -285,159 +272,177 @@ def _conv_block(in_c, out_c, use_bn=True):
     return nn.Sequential(*layers)
 \end{lstlisting}
 
-Grad-CAM se réduit à deux hooks (pour capturer les activations et les gradients de la
-dernière convolution) et à une combinaison pondérée suivie d'une ReLU.
+Grad-CAM reduces to two hooks (to capture the activations and gradients of the last
+convolution) and a weighted sum followed by a ReLU.
 
 \begin{lstlisting}
-out = model(x)                       # x : [1, 3, H, W]
+out = model(x)                       # x: [1, 3, H, W]
 model.zero_grad()
 out[0, class_idx].backward()
-weights = gradients.mean(dim=(2, 3), keepdim=True)      # importance par canal
+weights = gradients.mean(dim=(2, 3), keepdim=True)      # per-channel importance
 cam = F.relu((weights * activations).sum(1, keepdim=True))
 cam = F.interpolate(cam, size=x.shape[-2:], mode="bilinear")
 \end{lstlisting}
 
-\section{Expériences et résultats}
+\section{Experiments and results}
 
-\subsection{L'échelle baseline $\to$ CNN $\to$ ResNet}
+\subsection{The baseline $\to$ CNN $\to$ ResNet scale}
 
-Le tableau~\ref{tab:scale} et la figure~\ref{fig:echelle} résument l'apport de la
-convolution. Les baselines, aveugles à la structure spatiale, restent médiocres. Le CNN
-maison progresse nettement, et le transfer learning ajoute encore un cran.
+Table~\ref{tab:scale} and Figure~\ref{fig:echelle} sum up what convolution brings. The
+baselines are blind to spatial structure and stay weak. The custom CNN improves a lot.
+Transfer learning adds one more step.
 
 \begin{table}[h]
 \centering
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{lccc}
 \toprule
-modèle & accuracy & F1 macro \\
+model & accuracy & macro-F1 & weighted F1 \\
 \midrule
-Régression logistique (pixels) & \accLogReg & \fLogReg \\
-MLP 2 couches (pixels) & \accMLP & \fMLP \\
-CNN maison & \accCNN & \fCNN \\
-ResNet18 (fine-tuné) & \accResnet & \fResnet \\
+Logistic regression (pixels) & \accLogReg & \fLogReg & \fwLogReg \\
+MLP, 2 layers (pixels) & \accMLP & \fMLP & \fwMLP \\
+Custom CNN & \accCNN & \fCNN & \fwCNN \\
+ResNet18 (fine-tuned) & \accResnet & \fResnet & \fwResnet \\
 \bottomrule
 \end{tabular}
-\caption{Performances sur le test officiel (jamais utilisé pendant le développement).}
+\caption{Performance on the official test set, never used during development. Per-class
+precision and recall are in the notebook.}
 \label{tab:scale}
 \end{table}
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.72\textwidth]{echelle.png}
-\caption{F1 macro sur le test, des baselines au ResNet. La convolution, puis le
-pré-entraînement, expliquent l'essentiel du gain.}
+\caption{Test macro-F1, from baselines to ResNet. Convolution, then pretraining, explain most
+of the gain.}
 \label{fig:echelle}
 \end{figure}
 
-\subsection{Tuning et courbes d'apprentissage}
+\subsection{Tuning and learning curves}
 
-Le learning rate est réglé sur la validation ; la meilleure valeur est
-$\text{lr}=\bestlr$. Les courbes de la figure~\ref{fig:courbes} montrent l'évolution de la
-loss et du F1 macro de validation, avec l'epoch retenue par early stopping.
+We swept the learning rate on the validation set. On a short budget (10 epochs), $3\times
+10^{-4}$ gave the best macro-F1. The reported CNN was trained for 30 epochs at
+$\text{lr}=10^{-3}$, which is robust in this regime. The sweep is exploratory: its 10-epoch
+scores are not directly comparable to the final 30-epoch model. It mainly shows that
+performance is stable between $3\times10^{-4}$ and $10^{-3}$, and drops at $3\times10^{-3}$.
+Figure~\ref{fig:courbes} shows the loss and the validation macro-F1 over epochs, with the
+epoch kept by early stopping.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=\textwidth]{courbes.png}
-\caption{Courbes d'apprentissage du CNN maison (loss train/val et métriques de
-validation). La ligne verticale marque l'epoch du meilleur F1 macro.}
+\caption{Learning curves of the custom CNN (train/val loss and validation metrics). The
+vertical line marks the epoch with the best macro-F1.}
 \label{fig:courbes}
 \end{figure}
 
-\subsection{Analyse par classe et confusions}
+\subsection{Per-class analysis and confusions}
 
-La matrice de confusion (figure~\ref{fig:confusion}) et le F1 par classe
-(figure~\ref{fig:perclass}) montrent où le modèle se trompe. Les classes lisses et les
-galaxies edge-on sont les mieux reconnues : \bestclass{} obtient le meilleur F1, car sa
-morphologie est nette et peu ambiguë. À l'inverse, la classe \worstclass{} est la plus
-difficile ; les galaxies perturbées recouvrent visuellement les fusions et forment une
-catégorie hétérogène, ce qui relève d'une ambiguïté de définition plus que d'un simple
-manque d'exemples. Les spirales serrées et lâches se confondent aussi entre elles, et la
-classe rare Cigar Shaped reste fragile. Les confusions se concentrent donc, comme attendu,
-entre classes morphologiquement proches.
+The confusion matrix (Figure~\ref{fig:confusion}) and the per-class F1
+(Figure~\ref{fig:perclass}) show where the model fails. Smooth and edge-on classes are the
+best recognized. \bestclass{} gets the top F1, because its shape is clean and not ambiguous.
+The hardest class is \worstclass{}. Disturbed galaxies overlap with mergers and form a mixed
+category. This is more an ambiguity of definition than a lack of examples. Tight and loose
+spirals also mix with each other. The rare Cigar Shaped class stays fragile. So the
+confusions concentrate, as expected, between morphologically close classes.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.7\textwidth]{confusion.png}
-\caption{Matrice de confusion normalisée par ligne (ResNet18, test).}
+\caption{Confusion matrix, normalized per row (ResNet18, test).}
 \label{fig:confusion}
 \end{figure}
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.8\textwidth]{perclass.png}
-\caption{F1 par classe sur le test. Les classes rares et ambiguës sont en bas.}
+\caption{Per-class F1 on the test set (ResNet18). Rare and ambiguous classes are at the
+bottom.}
 \label{fig:perclass}
 \end{figure}
 
-\subsection{Interprétation par Grad-CAM}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lr@{\qquad}lr}
+\toprule
+class & F1 & class & F1 \\
+\midrule
+Round Smooth & 0.915 & Barred Spiral & 0.802 \\
+In-between Round Smooth & 0.899 & Unbarred Tight Spiral & 0.716 \\
+Edge-on without Bulge & 0.899 & Cigar Shaped Smooth & 0.692 \\
+Edge-on with Bulge & 0.890 & Unbarred Loose Spiral & 0.637 \\
+Merging & 0.844 & Disturbed & 0.505 \\
+\bottomrule
+\end{tabular}
+\caption{Per-class F1 (ResNet18, test), best to worst. The smooth and edge-on classes lead;
+the disturbed and loose-spiral classes trail.}
+\label{tab:perclass}
+\end{table}
 
-Grad-CAM pondère les feature maps de la dernière convolution par le gradient moyen du
-score de la classe, applique une ReLU, puis rééchelonne à la taille de l'image ; on obtient
-une carte de chaleur des régions qui pilotent la prédiction. Formellement, pour la classe
-$c$ et les feature maps $A^k$ de la dernière convolution, on calcule les poids
-$\alpha_k^c = \tfrac{1}{Z}\sum_{i,j} \partial y^c / \partial A^k_{i,j}$ (moyenne spatiale du
-gradient), puis la carte $L^c = \mathrm{ReLU}\!\big(\sum_k \alpha_k^c A^k\big)$, rééchelonnée
-à la taille de l'image. La figure~\ref{fig:gradcam} montre des cas corrects et des erreurs. Sur les bonnes
-prédictions, le réseau se concentre sur les structures pertinentes (bras spiraux, barre,
-compagnon de fusion) ; sur les erreurs, la carte révèle parfois un appui sur un objet
-voisin ou un artefact.
+\subsection{Interpretation with Grad-CAM}
+
+Grad-CAM weights the feature maps of the last convolution by the mean gradient of the class
+score, applies a ReLU, then rescales to the image size. We get a heatmap of the regions that
+drive the prediction. Formally, for class $c$ and feature maps $A^k$ of the last convolution,
+we compute the weights $\alpha_k^c = \tfrac{1}{Z}\sum_{i,j} \partial y^c / \partial
+A^k_{i,j}$ (spatial mean of the gradient), then the map $L^c = \mathrm{ReLU}\!\big(\sum_k
+\alpha_k^c A^k\big)$, rescaled to the image size. Figure~\ref{fig:gradcam} shows correct
+cases and errors. On correct predictions, the network focuses on the relevant structures
+(spiral arms, the bar, a merging companion). On errors, the map sometimes rests on a
+neighbor or an artifact.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=\textwidth]{gradcam_resnet.png}
-\caption{Grad-CAM sur le ResNet18 (ligne haute : image ; ligne basse : carte superposée).
-Prédictions correctes puis erreurs.}
+\caption{Grad-CAM on the ResNet18 (top row: image; bottom row: overlaid map). Correct
+predictions, then errors.}
 \label{fig:gradcam}
 \end{figure}
 
 \subsection{Ablations}
 
-On retire un ingrédient à la fois pour mesurer son apport (F1 macro sur le test). Le CNN
-complet atteint \ablbase{}, la variante sans augmentation \ablnoaug{} et la variante sans
-BatchNorm \ablnobn{}. Contrairement à l'intuition, l'augmentation n'apporte quasiment rien
-dans notre régime, et retirer la BatchNorm améliore même légèrement le F1 de test. Deux
-lectures cohérentes se dégagent. À 64 px et 30 epochs, le CNN ne sur-apprend pas fortement :
-la régularisation par augmentation a donc peu d'effet, elle est surtout utile quand
-l'overfitting est marqué. Et un seul tirage suffit à noyer un écart modeste dans le bruit ;
-une ablation rigoureuse devrait moyenner sur plusieurs graines. La BatchNorm garde par
-ailleurs son intérêt principal, accélérer et stabiliser la convergence, ce que confirment les
-courbes d'apprentissage. Ce résultat honnête rappelle que l'apport d'un ingrédient de
-régularisation dépend du régime d'entraînement et n'est pas acquis d'avance.
+We remove one ingredient at a time to measure its effect (test macro-F1). The full CNN
+reaches \ablbase{}. The variant without augmentation reaches \ablnoaug{}. The variant without
+BatchNorm reaches \ablnobn{}. This goes against intuition. Augmentation brings almost nothing
+in our regime, and removing BatchNorm even raises the test F1 a little. Two readings fit. At
+64 px and 30 epochs, the CNN does not overfit much, so augmentation has little effect; it
+helps mainly when overfitting is strong. And a single run can hide a small gap in the noise;
+a proper ablation should average over several seeds. BatchNorm still keeps its main value,
+faster and more stable convergence, which the learning curves confirm. This result is a
+reminder that a regularizer's benefit depends on the training regime and is not a given.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.85\textwidth]{augment.png}
-\caption{Effet de l'augmentation sur une même galaxie (rotations, symétries, jitter). Le
-label est préservé, l'apparence varie.}
+\caption{Effect of augmentation on one galaxy (rotations, flips, jitter). The label is kept,
+the look changes.}
 \label{fig:augment}
 \end{figure}
 
-\section{Limites}
+\section{Limits}
 
-Trois limites principales. Les labels de Galaxy Zoo sont bruités : ils agrègent des votes
-de volontaires et les frontières entre classes voisines sont floues, ce qui plafonne
-mécaniquement la performance atteignable. Le déséquilibre pénalise les classes rares
-malgré la pondération de la loss. Enfin, le coût d'entraînement limite l'exploration : on a
-travaillé en 64 et 128 px plutôt qu'en 256, et l'espace des hyperparamètres n'a été
-balayé que partiellement.
+Three main limits. The Galaxy Zoo labels are noisy. They aggregate volunteer votes, and the
+borders between neighboring classes are fuzzy, which caps the reachable performance. The
+imbalance penalizes rare classes despite the weighted loss. And the training cost limits the
+search. We worked at 64 and 128 px rather than 256, and the hyperparameter space was only
+partly swept.
 
-Plusieurs pistes prolongeraient naturellement ce travail. On pourrait entraîner en 256 px
-pour exploiter la résolution native des images, remplacer la pondération de la loss par un
-sur-échantillonnage des classes rares ou une focal loss, et estimer l'incertitude des
-prédictions (par exemple par dropout au test) pour signaler les cas ambigus plutôt que de
-forcer une décision. Comparer plusieurs backbones pré-entraînés et exploiter explicitement
-l'invariance par rotation dans l'architecture (couches équivariantes) sont deux autres
-directions cohérentes avec l'esprit du projet.
+Several directions would extend this work. We could train at 256 px to use the native
+resolution. We could replace the loss weighting by oversampling of rare classes or a focal
+loss. We could estimate prediction uncertainty (for example by test-time dropout) to flag
+ambiguous cases instead of forcing a decision. Comparing several pretrained backbones, and
+using rotation invariance in the architecture explicitly (equivariant layers), are two more
+directions in the spirit of this project.
 
 \section{Conclusion}
 
-L'échelle baseline $\to$ CNN $\to$ ResNet répond à la question de départ : la convolution,
-puis le transfer learning, apportent l'essentiel de la performance, et le meilleur modèle
-reproduit correctement le tri morphologique de Galaxy Zoo. Grad-CAM confirme que le réseau
-s'appuie sur les structures morphologiques attendues, et les ablations quantifient l'apport
-de chaque ingrédient. Le point conceptuel à retenir est que le succès du CNN sur des images
-tient largement à une symétrie imposée par construction, l'équivariance par translation,
-prolongée par une augmentation qui encode les invariances physiques du problème.
+The baseline $\to$ CNN $\to$ ResNet scale answers the starting question. Convolution, then
+transfer learning, bring most of the performance, and the best model reproduces the Galaxy
+Zoo morphological sorting well. Grad-CAM confirms that the network relies on the expected
+morphological structures. The ablations measure the effect of each ingredient. The idea to
+keep is that a CNN works on images largely because of a symmetry built in by design,
+translation equivariance, extended by an augmentation that encodes the physical invariances
+of the problem.
 
 \end{document}

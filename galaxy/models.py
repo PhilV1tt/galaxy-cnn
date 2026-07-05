@@ -1,9 +1,9 @@
-"""Les modèles du projet : baselines sans convolution, CNN maison, ResNet18.
+"""Project models: convolution-free baselines, custom CNN, ResNet18.
 
-L'histoire du projet est l'échelle de trois niveaux :
-  1. baselines (régression logistique, MLP) aveugles à la structure spatiale ;
-  2. CNN maison (convolution = partage de poids + équivariance par translation) ;
-  3. transfer learning (ResNet18 pré-entraîné ImageNet).
+The project's story is a three-level ladder:
+  1. baselines (logistic regression, MLP) blind to spatial structure;
+  2. custom CNN (convolution = weight sharing + translation equivariance);
+  3. transfer learning (ImageNet-pretrained ResNet18).
 """
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ from .config import NUM_CLASSES
 
 
 class LogisticRegression(nn.Module):
-    """Baseline 1 : régression logistique multinomiale sur pixels aplatis.
+    """Baseline 1: multinomial logistic regression on flattened pixels.
 
-    Une seule couche linéaire. Aucune notion de localité : chaque pixel est une
-    variable indépendante. Volontairement médiocre.
+    A single linear layer. No notion of locality: each pixel is an
+    independent variable. Deliberately mediocre.
     """
 
     def __init__(self, in_channels: int = 3, image_size: int = 64, num_classes: int = NUM_CLASSES):
@@ -30,10 +30,10 @@ class LogisticRegression(nn.Module):
 
 
 class MLP(nn.Module):
-    """Baseline 2 : perceptron multicouche sur pixels aplatis.
+    """Baseline 2: multilayer perceptron on flattened pixels.
 
-    Deux couches cachées + ReLU + dropout. Plus expressif que la régression
-    logistique, mais toujours aveugle à la structure 2D.
+    Two hidden layers + ReLU + dropout. More expressive than logistic
+    regression, but still blind to 2D structure.
     """
 
     def __init__(
@@ -59,9 +59,9 @@ class MLP(nn.Module):
 
 
 def _conv_block(in_c: int, out_c: int, use_bn: bool = True) -> nn.Sequential:
-    """Bloc [Conv 3x3 pad 1 -> (BatchNorm) -> ReLU -> MaxPool 2].
+    """Block [Conv 3x3 pad 1 -> (BatchNorm) -> ReLU -> MaxPool 2].
 
-    La conv 3x3 pad 1 conserve la taille spatiale ; le pooling la divise par 2.
+    The 3x3 pad 1 conv keeps the spatial size; pooling halves it.
     """
     layers: list[nn.Module] = [nn.Conv2d(in_c, out_c, kernel_size=3, padding=1, bias=not use_bn)]
     if use_bn:
@@ -71,13 +71,13 @@ def _conv_block(in_c: int, out_c: int, use_bn: bool = True) -> nn.Sequential:
 
 
 class GalaxyCNN(nn.Module):
-    """CNN maison : 4 blocs conv + tête dense.
+    """Custom CNN: 4 conv blocks + dense head.
 
-    channels=(32,64,128,256). AdaptiveAvgPool(4x4) fixe la tête quelle que soit
-    la résolution d'entrée (64 ou 128 px). ~1,44 M paramètres, dominés par la
-    première couche dense (4096 -> 256).
+    channels=(32,64,128,256). AdaptiveAvgPool(4x4) fixes the head whatever
+    the input resolution (64 or 128 px). ~1,44 M parameters, dominated by the
+    first dense layer (4096 -> 256).
 
-    use_bn et le dropout servent aux ablations.
+    use_bn and dropout are used for the ablations.
     """
 
     def __init__(
@@ -105,7 +105,7 @@ class GalaxyCNN(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(256, num_classes),
         )
-        # Nom de la dernière conv, utile pour Grad-CAM.
+        # Name of the last conv, useful for Grad-CAM.
         self.last_conv = self.features[-1][0]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -115,10 +115,10 @@ class GalaxyCNN(nn.Module):
 
 
 def build_resnet18(pretrained: bool = True, mode: str = "finetune", num_classes: int = NUM_CLASSES):
-    """ResNet18 avec dernière couche remplacée par `num_classes` sorties.
+    """ResNet18 with the last layer replaced by `num_classes` outputs.
 
-    mode='features'  : backbone gelé, on n'entraîne que fc (feature extraction).
-    mode='finetune'  : tout est entraînable.
+    mode='features'  : frozen backbone, only fc is trained (feature extraction).
+    mode='finetune'  : everything is trainable.
     """
     from torchvision import models
 
