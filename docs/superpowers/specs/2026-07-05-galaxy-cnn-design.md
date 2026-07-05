@@ -111,7 +111,7 @@ Quantify the macro F1 loss to isolate the contribution of each ingredient.
 ## 8. Deliverables (mirror of `../cifar/`)
 
 ```
-final/
+galaxy-cnn/
   pyproject.toml            uv: torch, torchvision, datasets, scikit-learn, matplotlib, pandas
   galaxy_cnn.ipynb          sections 0-8
   galaxy/                   testable package (data, models, train, metrics, gradcam)
