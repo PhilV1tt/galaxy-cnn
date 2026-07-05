@@ -1,0 +1,28 @@
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Données et caches (lourds, régénérés)
+data/
+*.pt
+!galaxy/**/*.pt
+
+# Checkpoints modèles
+checkpoints/
+*.ckpt
+
+# LaTeX build
+*.aux
+*.log
+*.out
+*.nav
+*.snm
+*.toc
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+
+# OS
+.DS_Store
