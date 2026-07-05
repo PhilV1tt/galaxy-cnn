@@ -320,6 +320,14 @@ cnn_nobn, _ = fit(GalaxyCNN(use_bn=False), tl, vl, epochs=EPOCHS_CNN, lr=1e-3, c
 _, yt, yp = evaluate(cnn_nobn, te, crit, device)
 abl["sans BatchNorm"] = summary_metrics(yt, yp)["f1_macro"]
 
+# On ajoute les ablations à results.json (pour l'injection dans le rapport).
+try:
+    _r = json.load(open(project_root() / "results.json"))
+    _r["ablations"] = {k: round(v, 4) for k, v in abl.items()}
+    json.dump(_r, open(project_root() / "results.json", "w"), indent=2, ensure_ascii=False)
+except Exception as e:
+    print("maj results.json:", e)
+
 pd.DataFrame({"f1_macro (test)": {k: round(v, 3) for k, v in abl.items()}})""")
 
 md(r"""## Conclusion
