@@ -6,17 +6,17 @@
 \graphicspath{{../figures/}}
 
 % ==== BEGIN RESULTS (injectés depuis results.json) ====
-\newcommand{\fLogReg}{0.00}
-\newcommand{\fMLP}{0.00}
-\newcommand{\accCNN}{0.00}
-\newcommand{\fCNN}{0.00}
-\newcommand{\accResnet}{0.00}
-\newcommand{\fResnet}{0.00}
-\newcommand{\bestlr}{1e{-}3}
+\newcommand{\fLogReg}{0.26}
+\newcommand{\fMLP}{0.40}
+\newcommand{\accCNN}{0.70}
+\newcommand{\fCNN}{0.68}
+\newcommand{\accResnet}{0.80}
+\newcommand{\fResnet}{0.78}
+\newcommand{\bestlr}{3e{-4}}
 \newcommand{\cnnparams}{1.44\,M}
-\newcommand{\ablbase}{0.00}
-\newcommand{\ablnoaug}{0.00}
-\newcommand{\ablnobn}{0.00}
+\newcommand{\ablbase}{0.68}
+\newcommand{\ablnoaug}{0.69}
+\newcommand{\ablnobn}{0.72}
 % ==== END RESULTS ====
 
 \title{Classifying galaxy morphology with a CNN}
@@ -124,8 +124,9 @@ Baselines are blind to spatial structure. Convolution, then pretraining, explain
 \begin{center}
 \includegraphics[width=0.6\textwidth]{confusion.png}
 \end{center}
-Errors concentrate between neighboring morphologies (tight vs loose spirals, round vs cigar,
-edge-on with vs without bulge). The rare Cigar Shaped class stays hardest.
+Errors concentrate between neighboring morphologies: loose vs tight spirals, and disturbed
+galaxies spread across several classes. Disturbed (0.49) and loose spirals (0.56) are
+hardest; smooth and edge-on classes are near perfect.
 \end{frame}
 
 \begin{frame}{Grad-CAM: where the network looks}
@@ -145,7 +146,8 @@ On errors it sometimes latches onto a neighbor or an artifact.
   \item no augmentation: \ablnoaug
   \item no BatchNorm: \ablnobn
 \end{itemize}
-Each ingredient measurably helps.
+Counterintuitive here: augmentation barely helps and removing BN even nudges F1 up. A
+low-overfit, single-seed regime. BN still speeds convergence.
 \end{column}
 \begin{column}{0.5\textwidth}
 \textbf{Limits}:
