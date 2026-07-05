@@ -1,7 +1,7 @@
 # Design: Galaxy10 DECaLS: morphological classification with CNN
 
 Date: 2026-07-05. Deadline: 2026-07-06 (evening). Sprint ~1 day.
-Group (5): Patrick Yvan Eyike, Philémon Vittet, Sidi Hamadi, Abdelrahman Dahy, Ines Lylia Zerdani.
+Author: Philémon Vittet.
 
 ## 1. Goal
 

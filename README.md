@@ -5,7 +5,7 @@ convolution: baselines without convolution (logistic regression, MLP), a custom 
 (~1,44 M parameters), and a pretrained ResNet18. Interpretation with Grad-CAM, ablations
 without augmentation / without BatchNorm.
 
-Project: Patrick Yvan Eyike, Philémon Vittet, Sidi Hamadi, Abdelrahman Dahy, Inès Lylia Zerdani.
+Project: Philémon Vittet.
 
 ## Contents
 

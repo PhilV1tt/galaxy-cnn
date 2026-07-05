@@ -37,7 +37,7 @@ code = lambda t: cells.append(nbf.v4.new_code_cell(t))
 md(r"""# Morphological classification of galaxies with a CNN
 ### Galaxy10 DECaLS: 17 736 images, 10 classes
 
-Patrick Yvan Eyike · Philémon Vittet · Sidi Hamadi · Abdelrahman Dahy · Inès Lylia Zerdani
+Philémon Vittet
 
 **Question.** Can a convolutional neural network reproduce the morphological
 sorting work done by the Galaxy Zoo volunteers?
