@@ -26,3 +26,6 @@ checkpoints/
 
 # OS
 .DS_Store
+
+# Local only, not published
+manim/
