@@ -1,0 +1,78 @@
+{
+  "models": {
+    "LogReg": {
+      "accuracy": 0.1938,
+      "precision_macro": 0.1041,
+      "recall_macro": 0.2639,
+      "f1_macro": 0.1196,
+      "precision_weighted": 0.0998,
+      "recall_weighted": 0.1938,
+      "f1_weighted": 0.1073
+    },
+    "MLP": {
+      "accuracy": 0.1,
+      "precision_macro": 0.1946,
+      "recall_macro": 0.1013,
+      "f1_macro": 0.0969,
+      "precision_weighted": 0.1858,
+      "recall_weighted": 0.1,
+      "f1_weighted": 0.0979
+    },
+    "CNN": {
+      "accuracy": 0.15,
+      "precision_macro": 0.1378,
+      "recall_macro": 0.1514,
+      "f1_macro": 0.0651,
+      "precision_weighted": 0.1775,
+      "recall_weighted": 0.15,
+      "f1_weighted": 0.0708
+    },
+    "ResNet18": {
+      "accuracy": 0.2875,
+      "precision_macro": 0.2759,
+      "recall_macro": 0.3332,
+      "f1_macro": 0.266,
+      "precision_weighted": 0.3012,
+      "recall_weighted": 0.2875,
+      "f1_weighted": 0.2718
+    }
+  },
+  "cnn_params": 1440298,
+  "cnn_best_epoch": 3,
+  "resnet_best_epoch": 2,
+  "per_class_f1_resnet": {
+    "Disturbed": 0.195,
+    "Merging": 0.0,
+    "Round Smooth": 0.4,
+    "In-between Round Smooth": 0.069,
+    "Cigar Shaped Smooth": 0.2,
+    "Barred Spiral": 0.348,
+    "Unbarred Tight Spiral": 0.214,
+    "Unbarred Loose Spiral": 0.222,
+    "Edge-on without Bulge": 0.611,
+    "Edge-on with Bulge": 0.4
+  },
+  "tuning_lr": [
+    {
+      "lr": 0.0003,
+      "val_f1_macro": 0.066,
+      "best_epoch": 2
+    },
+    {
+      "lr": 0.001,
+      "val_f1_macro": 0.134,
+      "best_epoch": 2
+    },
+    {
+      "lr": 0.003,
+      "val_f1_macro": 0.026,
+      "best_epoch": 2
+    }
+  ],
+  "config": {
+    "res_small": 64,
+    "res_large": 128,
+    "batch": 128,
+    "full_run": false
+  }
+}

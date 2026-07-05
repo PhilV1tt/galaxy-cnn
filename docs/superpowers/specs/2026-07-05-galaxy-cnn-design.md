@@ -65,11 +65,11 @@ AdaptiveAvgPool(4x4) (fixe la tête quelle que soit la résolution d'entrée)
 Tête   : Flatten(4096) -> Dropout -> Linear(4096->256) -> ReLU -> Dropout -> Linear(256->10)
 ```
 
-Nombre de paramètres (à refaire à la main pour la soutenance) :
-- Convs : 896 + 18 496 + 73 856 + 295 168 = 388 416
-- BatchNorm : 64 + 128 + 256 + 512 = 960
+Nombre de paramètres (à refaire à la main pour la soutenance, vérifié par le code = 1 440 298) :
+- Convs **sans biais** (la BatchNorm fournit le décalage) : 864 + 18 432 + 73 728 + 294 912 = 387 936
+- BatchNorm (2 params par canal) : 64 + 128 + 256 + 512 = 960
 - FC : (4096x256 + 256) + (256x10 + 10) = 1 048 832 + 2 570 = 1 051 402
-- **Total ≈ 1 440 778 (~1,44 M)**, dominé par la première couche FC.
+- **Total = 1 440 298 (~1,44 M)**, dominé par la première couche FC (73 %).
 
 L'`AdaptiveAvgPool(4x4)` garde ~1,44 M params en 64 comme en 128 px. Sans pooling adaptatif,
 passer à 128 px ferait exploser FC1 (16384x256 ≈ 4,2 M) : bon point pédagogique à mentionner.
