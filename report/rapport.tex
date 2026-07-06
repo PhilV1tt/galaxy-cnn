@@ -18,26 +18,26 @@
   language=Python,breaklines=true,frame=single,showstringspaces=false,
   columns=fullflexible,aboveskip=6pt,belowskip=6pt}
 
-% ==== BEGIN RESULTS (values injected from results.json by inject_results.py) ====
-\newcommand{\accLogReg}{0.280}
-\newcommand{\fLogReg}{0.259}
-\newcommand{\fwLogReg}{0.283}
-\newcommand{\accMLP}{0.439}
-\newcommand{\fMLP}{0.404}
-\newcommand{\fwMLP}{0.432}
-\newcommand{\accCNN}{0.705}
-\newcommand{\fCNN}{0.683}
-\newcommand{\fwCNN}{0.691}
-\newcommand{\accResnet}{0.800}
-\newcommand{\fResnet}{0.780}
-\newcommand{\fwResnet}{0.796}
-\newcommand{\bestlr}{3\times10^{-4}}
+% ==== Results (test set) ====
+\newcommand{\accLogReg}{0.304}
+\newcommand{\fLogReg}{0.273}
+\newcommand{\fwLogReg}{0.295}
+\newcommand{\accMLP}{0.508}
+\newcommand{\fMLP}{0.474}
+\newcommand{\fwMLP}{0.504}
+\newcommand{\accCNN}{0.782}
+\newcommand{\fCNN}{0.766}
+\newcommand{\fwCNN}{0.778}
+\newcommand{\accResnet}{0.837}
+\newcommand{\fResnet}{0.829}
+\newcommand{\fwResnet}{0.837}
+\newcommand{\bestlr}{1\times10^{-3}}
 \newcommand{\cnnparams}{1\,440\,298}
-\newcommand{\bestclass}{Round Smooth}
+\newcommand{\bestclass}{Edge-on with Bulge}
 \newcommand{\worstclass}{Disturbed}
-\newcommand{\ablbase}{0.683}
-\newcommand{\ablnoaug}{0.687}
-\newcommand{\ablnobn}{0.719}
+\newcommand{\ablbase}{0.766}
+\newcommand{\ablnoaug}{0.708}
+\newcommand{\ablnobn}{0.787}
 % ==== END RESULTS ====
 
 \newcommand{\code}[1]{\texttt{#1}}
@@ -252,7 +252,7 @@ automatic device detection.
 \paragraph{Protocol and reproducibility.} The validation draw, the weight init, and the batch
 shuffling are controlled by a fixed seed (42). The validation set is 15\,\% of the train
 split (about 2\,395 images). The official test set has 1\,774 images. Batches hold 128
-images. The optimizer is Adam with a cosine schedule. Early stopping has a patience of 8
+images. The optimizer is Adam with a cosine schedule. Early stopping has a patience of 15
 epochs. The normalization statistics, the best architecture, and the hyperparameters are
 frozen from the validation set, then applied once to the test set. The whole pipeline is
 deterministic for a given seed, so the results are reproducible.
@@ -319,11 +319,11 @@ of the gain.}
 
 \subsection{Tuning and learning curves}
 
-We swept the learning rate on the validation set. On a short budget (10 epochs), $3\times
-10^{-4}$ gave the best macro-F1. The reported CNN was trained for 30 epochs at
-$\text{lr}=10^{-3}$, which is robust in this regime. The sweep is exploratory: its 10-epoch
-scores are not directly comparable to the final 30-epoch model. It mainly shows that
-performance is stable between $3\times10^{-4}$ and $10^{-3}$, and drops at $3\times10^{-3}$.
+We swept the learning rate on the validation set. On a short budget (15 epochs), $10^{-3}$
+gave the best macro-F1. The reported CNN was trained for 80 epochs at $\text{lr}=10^{-3}$.
+The sweep is exploratory: its 15-epoch scores are not directly comparable to the final
+80-epoch model. It mainly shows that performance is stable between $3\times10^{-4}$ and
+$10^{-3}$, and drops at $3\times10^{-3}$.
 Figure~\ref{fig:courbes} shows the loss and the validation macro-F1 over epochs, with the
 epoch kept by early stopping.
 
@@ -339,7 +339,7 @@ vertical line marks the epoch with the best macro-F1.}
 
 The confusion matrix (Figure~\ref{fig:confusion}) and the per-class F1
 (Figure~\ref{fig:perclass}) show where the model fails. Smooth and edge-on classes are the
-best recognized. \bestclass{} gets the top F1, because its shape is clean and not ambiguous.
+best recognized. \bestclass{} gets the top F1, thanks to its clean and distinctive silhouette.
 The hardest class is \worstclass{}. Disturbed galaxies overlap with mergers and form a mixed
 category. This is more an ambiguity of definition than a lack of examples. Tight and loose
 spirals also mix with each other. The rare Cigar Shaped class stays fragile. So the
@@ -367,11 +367,11 @@ bottom.}
 \toprule
 class & F1 & class & F1 \\
 \midrule
-Round Smooth & 0.915 & Barred Spiral & 0.802 \\
-In-between Round Smooth & 0.899 & Unbarred Tight Spiral & 0.716 \\
-Edge-on without Bulge & 0.899 & Cigar Shaped Smooth & 0.692 \\
-Edge-on with Bulge & 0.890 & Unbarred Loose Spiral & 0.637 \\
-Merging & 0.844 & Disturbed & 0.505 \\
+Edge-on with Bulge & 0.927 & Cigar Shaped Smooth & 0.839 \\
+Round Smooth & 0.918 & Barred Spiral & 0.838 \\
+Edge-on without Bulge & 0.913 & Unbarred Tight Spiral & 0.743 \\
+In-between Round Smooth & 0.912 & Unbarred Loose Spiral & 0.736 \\
+Merging & 0.898 & Disturbed & 0.564 \\
 \bottomrule
 \end{tabular}
 \caption{Per-class F1 (ResNet18, test), best to worst. The smooth and edge-on classes lead;
@@ -403,13 +403,12 @@ predictions, then errors.}
 
 We remove one ingredient at a time to measure its effect (test macro-F1). The full CNN
 reaches \ablbase{}. The variant without augmentation reaches \ablnoaug{}. The variant without
-BatchNorm reaches \ablnobn{}. This goes against intuition. Augmentation brings almost nothing
-in our regime, and removing BatchNorm even raises the test F1 a little. Two readings fit. At
-64 px and 30 epochs, the CNN does not overfit much, so augmentation has little effect; it
-helps mainly when overfitting is strong. And a single run can hide a small gap in the noise;
-a proper ablation should average over several seeds. BatchNorm still keeps its main value,
-faster and more stable convergence, which the learning curves confirm. This result is a
-reminder that a regularizer's benefit depends on the training regime and is not a given.
+BatchNorm reaches \ablnobn{}. Augmentation clearly helps. The full model beats the no-augmentation variant by about six
+F1 points, in line with rotations and flips that match the physical invariances of galaxies.
+Removing BatchNorm is the surprise. It raises the test F1 a little. Two readings fit. A single
+run can hide a small gap in the noise, and a clean ablation should average over several
+seeds. BatchNorm still keeps its main value, faster and more stable convergence, which the
+learning curves confirm. Its benefit here is about optimization, not the final test F1.
 
 \begin{figure}[h]
 \centering

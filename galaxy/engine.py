@@ -68,7 +68,7 @@ def fit(
     criterion=None,
     optimizer=None,
     scheduler: str | None = "cosine",
-    patience: int = 8,
+    patience: int = 15,
     device=None,
     verbose: bool = True,
 ):
