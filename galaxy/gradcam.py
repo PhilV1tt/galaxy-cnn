@@ -1,9 +1,7 @@
 """Grad-CAM from scratch (Selvaraju et al., 2017).
 
-Idea: for the target class, take the gradient of the score with respect to the
-feature maps of the last conv, average it spatially (importance of each channel),
-weight the feature maps, ReLU, then resize to the image size. The map shows
-*where* the network looks.
+Gradient of the class score w.r.t. the last conv feature maps, averaged
+spatially to weight the maps, ReLU, then resized to the image.
 """
 from __future__ import annotations
 

@@ -8,6 +8,7 @@ __pycache__/
 data/
 *.pt
 !galaxy/**/*.pt
+results.json
 
 # Checkpoints modèles
 checkpoints/

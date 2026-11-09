@@ -1,10 +1,4 @@
-"""Project models: convolution-free baselines, custom CNN, ResNet18.
-
-The project's story is a three-level ladder:
-  1. baselines (logistic regression, MLP) blind to spatial structure;
-  2. custom CNN (convolution = weight sharing + translation equivariance);
-  3. transfer learning (ImageNet-pretrained ResNet18).
-"""
+"""Baselines (logistic regression, MLP), custom CNN, and ResNet18."""
 from __future__ import annotations
 
 import torch
@@ -14,11 +8,7 @@ from .config import NUM_CLASSES
 
 
 class LogisticRegression(nn.Module):
-    """Baseline 1: multinomial logistic regression on flattened pixels.
-
-    A single linear layer. No notion of locality: each pixel is an
-    independent variable. Deliberately mediocre.
-    """
+    """Logistic regression on flattened pixels: one linear layer, no locality."""
 
     def __init__(self, in_channels: int = 3, image_size: int = 64, num_classes: int = NUM_CLASSES):
         super().__init__()
@@ -30,11 +20,7 @@ class LogisticRegression(nn.Module):
 
 
 class MLP(nn.Module):
-    """Baseline 2: multilayer perceptron on flattened pixels.
-
-    Two hidden layers + ReLU + dropout. More expressive than logistic
-    regression, but still blind to 2D structure.
-    """
+    """MLP on flattened pixels: two hidden layers, ReLU, dropout."""
 
     def __init__(
         self,
@@ -59,10 +45,7 @@ class MLP(nn.Module):
 
 
 def _conv_block(in_c: int, out_c: int, use_bn: bool = True) -> nn.Sequential:
-    """Block [Conv 3x3 pad 1 -> (BatchNorm) -> ReLU -> MaxPool 2].
-
-    The 3x3 pad 1 conv keeps the spatial size; pooling halves it.
-    """
+    """Conv 3x3 (pad 1) -> (BatchNorm) -> ReLU -> MaxPool 2."""
     layers: list[nn.Module] = [nn.Conv2d(in_c, out_c, kernel_size=3, padding=1, bias=not use_bn)]
     if use_bn:
         layers.append(nn.BatchNorm2d(out_c))
@@ -71,13 +54,10 @@ def _conv_block(in_c: int, out_c: int, use_bn: bool = True) -> nn.Sequential:
 
 
 class GalaxyCNN(nn.Module):
-    """Custom CNN: 4 conv blocks + dense head.
+    """4 conv blocks (channels 32,64,128,256) + dense head.
 
-    channels=(32,64,128,256). AdaptiveAvgPool(4x4) fixes the head whatever
-    the input resolution (64 or 128 px). ~1,44 M parameters, dominated by the
-    first dense layer (4096 -> 256).
-
-    use_bn and dropout are used for the ablations.
+    AdaptiveAvgPool(4x4) fixes the head size for any input resolution
+    (64 or 128 px). ~1.44 M parameters. use_bn and dropout toggle the ablations.
     """
 
     def __init__(
